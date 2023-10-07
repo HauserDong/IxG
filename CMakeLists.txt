@@ -36,6 +36,7 @@ set(INSATxGCS_SOURCES
         src/planners/insat/INSATxGCS.cpp
         src/planners/insat/pINSATxGCS.cpp
         src/planners/insat/opt/GCSOpt.cpp
+        src/planners/insat/opt/GCSSmoothOpt.cpp
 )
 
 
