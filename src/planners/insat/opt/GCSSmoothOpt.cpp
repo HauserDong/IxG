@@ -32,7 +32,7 @@
  * \date 10/5/23
 */
 
-#include <planners/insat/opt/GCSOpt.hpp>
+#include <planners/insat/opt/GCSSmoothOpt.hpp>
 
 #include <iostream>
 
@@ -89,19 +89,21 @@ namespace ps {
   }
 }
 
-ps::GCSOpt::GCSOpt(const std::vector<HPolyhedron> &regions,
+ps::GCSSmoothOpt::GCSSmoothOpt(const std::vector<HPolyhedron> &regions,
                    const std::vector<std::pair<int, int>> &edges_between_regions,
-                   int order, int continuity, double h_min, double h_max,
+                   int order, int continuity,
                    double path_length_weight, double time_weight,
                    Eigen::VectorXd& vel_lb, Eigen::VectorXd& vel_ub,
+                   double h_min, double h_max, double hdot_min,
                    bool verbose)
     : verbose_(verbose),
       order_(order),
       continuity_(continuity),
-      h_min_(h_min),
-      h_max_(h_max),
       vel_lb_(vel_lb),
       vel_ub_(vel_ub),
+      h_min_(h_min),
+      h_max_(h_max),
+      hdot_min_(hdot_min),
       enable_time_cost_(false),
       enable_path_length_cost_(false),
       enable_path_velocity_constraint_(false),
@@ -139,7 +141,7 @@ ps::GCSOpt::GCSOpt(const std::vector<HPolyhedron> &regions,
 
 }
 
-void ps::GCSOpt::FormulateAndSetCostsAndConstraints() {
+void ps::GCSSmoothOpt::FormulateAndSetCostsAndConstraints() {
 
   if (!enable_path_length_cost_ && !enable_time_cost_) {
     std::runtime_error("The problem should be minimum length or minimum time or both. Nothing is enabled now!!");
@@ -160,7 +162,7 @@ void ps::GCSOpt::FormulateAndSetCostsAndConstraints() {
 
 }
 
-ps::VertexId ps::GCSOpt::AddStart(Eigen::VectorXd &start) {
+ps::VertexId ps::GCSSmoothOpt::AddStart(Eigen::VectorXd &start) {
 
   auto start_set = MakeConvexSets(drake::geometry::optimization::Point(start))[0];
 
@@ -207,7 +209,7 @@ ps::VertexId ps::GCSOpt::AddStart(Eigen::VectorXd &start) {
   return start_vertex->id();
 }
 
-ps::VertexId ps::GCSOpt::AddGoal(Eigen::VectorXd &goal) {
+ps::VertexId ps::GCSSmoothOpt::AddGoal(Eigen::VectorXd &goal) {
 
   auto goal_set = MakeConvexSets(drake::geometry::optimization::Point(goal))[0];
 
@@ -255,14 +257,14 @@ ps::VertexId ps::GCSOpt::AddGoal(Eigen::VectorXd &goal) {
 }
 
 std::pair<drake::trajectories::CompositeTrajectory<double>,
-    drake::solvers::MathematicalProgramResult> ps::GCSOpt::Solve(std::vector<VertexId> &path_vids) {
+    drake::solvers::MathematicalProgramResult> ps::GCSSmoothOpt::Solve(std::vector<VertexId> &path_vids) {
   Eigen::VectorXd dummy_init_guess;
   assert(dummy_init_guess.size() == 0);
   return Solve(path_vids, dummy_init_guess);
 }
 
 std::pair<drake::trajectories::CompositeTrajectory<double>,
-    drake::solvers::MathematicalProgramResult> ps::GCSOpt::Solve(std::vector<VertexId> &path_vids,
+    drake::solvers::MathematicalProgramResult> ps::GCSSmoothOpt::Solve(std::vector<VertexId> &path_vids,
                                                                  Eigen::VectorXd& initial_guess) {
   std::vector<EdgeId> path_eids;
   for (int i=0; i<path_vids.size()-1; ++i) {
@@ -280,7 +282,7 @@ std::pair<drake::trajectories::CompositeTrajectory<double>,
 
 std::pair<drake::trajectories::CompositeTrajectory<double>,
     drake::solvers::MathematicalProgramResult>
-ps::GCSOpt::Solve(std::vector<VertexId> &path_vids,
+ps::GCSSmoothOpt::Solve(std::vector<VertexId> &path_vids,
                   std::vector<EdgeId> &path_eids) {
   Eigen::VectorXd dummy_init_guess;
   assert(dummy_init_guess.size() == 0);
@@ -289,7 +291,7 @@ ps::GCSOpt::Solve(std::vector<VertexId> &path_vids,
 
 std::pair<drake::trajectories::CompositeTrajectory<double>,
     drake::solvers::MathematicalProgramResult>
-ps::GCSOpt::Solve(std::vector<VertexId>& path_vids,
+ps::GCSSmoothOpt::Solve(std::vector<VertexId>& path_vids,
                   std::vector<EdgeId>& path_eids,
                   Eigen::VectorXd& initial_guess) {
 
@@ -383,7 +385,7 @@ ps::GCSOpt::Solve(std::vector<VertexId>& path_vids,
   return {final_trajectory, result};
 }
 
-void ps::GCSOpt::CleanUp() {
+void ps::GCSSmoothOpt::CleanUp() {
   gcs_->RemoveVertex(start_vtx_);
   gcs_->RemoveVertex(goal_vtx_);
   vertices_.erase(start_vit_);
@@ -392,7 +394,7 @@ void ps::GCSOpt::CleanUp() {
   edges_.erase(goal_eit_);
 }
 
-void ps::GCSOpt::setupVars() {
+void ps::GCSSmoothOpt::setupVars() {
   const Eigen::MatrixX<drake::symbolic::Variable> u_control =
       drake::symbolic::MakeMatrixContinuousVariable(
           num_positions_, order_ + 1, "xu");
@@ -405,8 +407,8 @@ void ps::GCSOpt::setupVars() {
       v_control.data(), v_control.size());
 
   if (enable_time_cost_) {
-    u_h_ = drake::symbolic::MakeVectorContinuousVariable(1, "Tu");
-    v_h_ = drake::symbolic::MakeVectorContinuousVariable(1, "Tv");
+    u_h_ = drake::symbolic::MakeVectorContinuousVariable(order_ + 1, "Tu");
+    v_h_ = drake::symbolic::MakeVectorContinuousVariable(order_ + 1, "Tv");
 
     u_vars_ = drake::solvers::ConcatenateVariableRefList({u_control_vars, u_h_});
     v_vars_ = drake::solvers::ConcatenateVariableRefList({v_control_vars, v_h_});
@@ -415,24 +417,40 @@ void ps::GCSOpt::setupVars() {
     v_vars_ = v_control_vars;
   }
 
-//  const Eigen::VectorX<drake::symbolic::Variable> edge_vars =
-//      drake::solvers::ConcatenateVariableRefList(
-//          {u_control_vars, u_h_, v_control_vars, v_h_});
-
-  u_r_trajectory_ = drake::trajectories::BezierCurve<drake::symbolic::Expression>(
-      0, 1, u_control.cast<drake::symbolic::Expression>());
-
-  v_r_trajectory_ = drake::trajectories::BezierCurve<drake::symbolic::Expression>(
-      0, 1, v_control.cast<drake::symbolic::Expression>());
+  auto bsb = drake::math::BsplineBasis<drake::symbolic::Expression>(order_+1,
+                                                                    order_+1,
+                                                                    drake::math::KnotVectorType::kClampedUniform,
+                                                                    0, 1);
+  u_r_trajectory_ = drake::trajectories::BsplineTrajectory<drake::symbolic::Expression>(
+      bsb, ControlPointsOf(u_control));
+  u_h_trajectory_ = drake::trajectories::BsplineTrajectory<drake::symbolic::Expression>(
+      bsb, ControlPointsOf(u_h_.transpose()));
+  v_r_trajectory_ = drake::trajectories::BsplineTrajectory<drake::symbolic::Expression>(
+      bsb, ControlPointsOf(v_control));
+  v_h_trajectory_ = drake::trajectories::BsplineTrajectory<drake::symbolic::Expression>(
+      bsb, ControlPointsOf(v_h_.transpose()));
 }
 
-void ps::GCSOpt::preprocess(const drake::geometry::optimization::ConvexSets &regions,
+void ps::GCSSmoothOpt::preprocess(const drake::geometry::optimization::ConvexSets &regions,
                             const std::vector<std::pair<int, int>> &edges_between_regions) {
+
+  assert (continuity_ < order_);
+
   // Make time scaling set once to avoid many allocations when adding the
   // vertices to GCS.
-  const drake::geometry::optimization::HPolyhedron time_scaling_set =
-      drake::geometry::optimization::HPolyhedron::MakeBox(
-          drake::Vector1d(h_min_), drake::Vector1d(h_max_));
+  Eigen::MatrixXd A_time(3 * order_ + 2, order_ + 1);
+  Eigen::MatrixXd tmp = Eigen::MatrixXd::Zero(order_, order_ + 1);
+  tmp.block(0, 1, order_, order_).setIdentity();
+  A_time <<
+         Eigen::MatrixXd::Identity(order_ + 1, order_ + 1),
+      -Eigen::MatrixXd::Identity(order_ + 1, order_ + 1),
+      Eigen::MatrixXd::Identity(order_,     order_ + 1) - tmp;
+  Eigen::VectorXd b_time(3 * order_ + 2);
+  b_time <<
+         Eigen::VectorXd::Ones(order_ + 1) * 1e3,
+      Eigen::VectorXd::Zero(order_ + 1),
+      -Eigen::VectorXd::Ones(order_) * hdot_min_;
+  const drake::geometry::optimization::HPolyhedron time_scaling_set = HPolyhedron(A_time, b_time);
 
   // Add Regions with time scaling set.
   for (size_t i = 0; i < regions.size(); ++i) {
@@ -468,13 +486,13 @@ void ps::GCSOpt::preprocess(const drake::geometry::optimization::ConvexSets &reg
 
 }
 
-void ps::GCSOpt::formulateTimeCost() {
+void ps::GCSSmoothOpt::formulateTimeCost() {
   // The time cost is the sum of duration variables ∑ hᵢ
   time_cost_ =
       std::make_shared<drake::solvers::LinearCost>(time_weight_ * Eigen::VectorXd::Ones(1), 0.0);
 }
 
-void ps::GCSOpt::formulatePathLengthCost() {
+void ps::GCSSmoothOpt::formulatePathLengthCost() {
   const Eigen::MatrixX<drake::symbolic::Expression> u_rdot_control =
       drake::dynamic_pointer_cast_or_throw<drake::trajectories::BezierCurve<drake::symbolic::Expression>>(
           u_r_trajectory_.MakeDerivative())
@@ -482,7 +500,9 @@ void ps::GCSOpt::formulatePathLengthCost() {
 
   if (verbose_) {
 
-    std::cout << "u_r_trajectory_.control_points() \n  " << u_r_trajectory_.control_points() << std::endl;
+    for (const auto& ucon : u_r_trajectory_.control_points()) {
+      std::cout << "u_r_trajectory_.control_points() \n  " << ucon << std::endl;
+    }
     std::cout << "u_r_trajectory_.MakeDerivative()->control_points() \n  " << drake::dynamic_pointer_cast_or_throw<drake::trajectories::BezierCurve<drake::symbolic::Expression>>(
         u_r_trajectory_.MakeDerivative())
         ->control_points() << std::endl;
@@ -521,26 +541,50 @@ void ps::GCSOpt::formulatePathLengthCost() {
   }
 }
 
-void ps::GCSOpt::formulatePathContinuityConstraint() {
+void ps::GCSSmoothOpt::formulateContinuityConstraint() {
   const Eigen::VectorX<drake::symbolic::Variable> edge_vars =
       drake::solvers::ConcatenateVariableRefList({u_vars_, v_vars_});
 
-  const Eigen::VectorX<drake::symbolic::Expression> path_continuity_error =
-      v_r_trajectory_.control_points().col(0) -
-      u_r_trajectory_.control_points().col(order_);
-  Eigen::MatrixXd M(num_positions_, edge_vars.size());
-  drake::symbolic::DecomposeLinearExpressions(path_continuity_error, edge_vars, &M);
-  // Condense M to only keep non-zero columns.
-  const auto& [condensed_matrices, nonzero_cols_mask] =
-      CondenseToNonzeroColumns({M});
-  Eigen::MatrixXd M_dense = condensed_matrices[0];
+  for (int deriv=0; deriv<continuity_+1; ++deriv) {
+    /// path continuity
+    auto u_path_deriv = DynamicUniqueCast<drake::trajectories::BsplineTrajectory<drake::symbolic::Expression>>
+        (u_r_trajectory_.MakeDerivative(deriv));
+    auto v_path_deriv = DynamicUniqueCast<drake::trajectories::BsplineTrajectory<drake::symbolic::Expression>>
+        (v_r_trajectory_.MakeDerivative(deriv));
 
-  path_continuity_constraint_ = std::make_pair(
-      std::make_shared<drake::solvers::LinearEqualityConstraint>(
-          M_dense, Eigen::VectorXd::Zero(num_positions_)), nonzero_cols_mask);
+    const Eigen::VectorX<drake::symbolic::Expression> path_continuity_error =
+        v_path_deriv->control_points().front() -
+        u_path_deriv->control_points().back();
+    Eigen::MatrixXd M(num_positions_, edge_vars.size());
+    drake::symbolic::DecomposeLinearExpressions(path_continuity_error, edge_vars, &M);
+    // Condense M to only keep non-zero columns.
+    const auto &[condensed_matrices, nonzero_cols_mask] =
+        CondenseToNonzeroColumns({M});
+    Eigen::MatrixXd M_dense = condensed_matrices[0];
+    continuity_constraint_.emplace_back(std::make_shared<drake::solvers::LinearEqualityConstraint>(
+        M_dense, Eigen::VectorXd::Zero(num_positions_)), nonzero_cols_mask);
+
+    /// time continuity
+    auto u_time_deriv = DynamicUniqueCast<drake::trajectories::BsplineTrajectory<drake::symbolic::Expression>>
+        (u_h_trajectory_.MakeDerivative(deriv));
+    auto v_time_deriv = DynamicUniqueCast<drake::trajectories::BsplineTrajectory<drake::symbolic::Expression>>
+        (v_h_trajectory_.MakeDerivative(deriv));
+
+    const Eigen::VectorX<drake::symbolic::Expression> time_continuity_error =
+        v_time_deriv->control_points().front() -
+        u_time_deriv->control_points().back();
+    Eigen::MatrixXd M_h(num_positions_, edge_vars.size());
+    drake::symbolic::DecomposeLinearExpressions(time_continuity_error, edge_vars, &M_h);
+    // Condense M to only keep non-zero columns.
+    const auto &[condensed_matrices_h, nonzero_cols_mask_h] =
+        CondenseToNonzeroColumns({M_h});
+    Eigen::MatrixXd M_h_dense = condensed_matrices_h[0];
+    continuity_constraint_.emplace_back(std::make_shared<drake::solvers::LinearEqualityConstraint>(
+        M_h_dense, Eigen::VectorXd::Zero(num_positions_)), nonzero_cols_mask_h);
+  }
 }
 
-void ps::GCSOpt::formulateVelocityConstraint() {
+void ps::GCSSmoothOpt::formulateVelocityConstraint() {
   const Eigen::MatrixX<drake::symbolic::Expression> u_rdot_control =
       drake::dynamic_pointer_cast_or_throw<drake::trajectories::BezierCurve<drake::symbolic::Expression>>(
           u_r_trajectory_.MakeDerivative())
@@ -573,7 +617,7 @@ void ps::GCSOpt::formulateVelocityConstraint() {
   }
 }
 
-//void ps::GCSOpt::formulateStartPointConstraint() {
+//void ps::GCSSmoothOpt::formulateStartPointConstraint() {
 //  const Eigen::VectorX<drake::symbolic::Expression> start_point_error =
 //          u_r_trajectory_.control_points().col(0) - start_;
 //
@@ -594,7 +638,7 @@ void ps::GCSOpt::formulateVelocityConstraint() {
 //                  M_dense, Eigen::VectorXd::Zero(num_positions_)), nonzero_cols_mask);
 //}
 
-void ps::GCSOpt::formulateCostsAndConstraints() {
+void ps::GCSSmoothOpt::formulateCostsAndConstraints() {
   if (enable_time_cost_) {
     formulateTimeCost();
   }
@@ -603,14 +647,14 @@ void ps::GCSOpt::formulateCostsAndConstraints() {
     formulatePathLengthCost();
   }
 
-  formulatePathContinuityConstraint();
+  formulateContinuityConstraint();
 
   if (enable_path_velocity_constraint_) {
     formulateVelocityConstraint();
   }
 }
 
-void ps::GCSOpt::addCosts(const drake::geometry::optimization::GraphOfConvexSets::Vertex *v) {
+void ps::GCSSmoothOpt::addCosts(const drake::geometry::optimization::GraphOfConvexSets::Vertex *v) {
   if (enable_time_cost_) {
     CostBinding time_cost_binding =
         drake::solvers::Binding<drake::solvers::Cost>(
@@ -630,7 +674,7 @@ void ps::GCSOpt::addCosts(const drake::geometry::optimization::GraphOfConvexSets
   }
 }
 
-void ps::GCSOpt::addConstraints(const drake::geometry::optimization::GraphOfConvexSets::Vertex *v) {
+void ps::GCSSmoothOpt::addConstraints(const drake::geometry::optimization::GraphOfConvexSets::Vertex *v) {
   if (enable_path_velocity_constraint_) {
     for (const auto& vc : velocity_constraint_) {
       ConstraintBinding velocity_limits_binding =
@@ -651,17 +695,17 @@ void ps::GCSOpt::addConstraints(const drake::geometry::optimization::GraphOfConv
 //  }
 }
 
-void ps::GCSOpt::addConstraints(const drake::geometry::optimization::GraphOfConvexSets::Edge *e) {
+void ps::GCSSmoothOpt::addConstraints(const drake::geometry::optimization::GraphOfConvexSets::Edge *e) {
   ConstraintBinding continuity_constraint_binding =
       drake::solvers::Binding<drake::solvers::Constraint>(
-          path_continuity_constraint_.first,
+          continuity_constraint_.first,
           FilterVariables(drake::solvers::ConcatenateVariableRefList({e->u().x(), e->v().x()}),
-                          path_continuity_constraint_.second));
+                          continuity_constraint_.second));
 
   edge_id_to_constraint_binding_[e->id().get_value()].emplace_back(continuity_constraint_binding);
 }
 
-void ps::GCSOpt::setupCostsAndConstraints() {
+void ps::GCSSmoothOpt::setupCostsAndConstraints() {
   for (const auto* v : vertices_) {
     addCosts(v);
     addConstraints(v);
@@ -669,4 +713,23 @@ void ps::GCSOpt::setupCostsAndConstraints() {
   for (const auto* e : edges_) {
     addConstraints(e);
   }
+}
+
+std::vector<Eigen::MatrixX<drake::symbolic::Expression>>
+ps::GCSSmoothOpt::ControlPointsOf(const Eigen::MatrixX<drake::symbolic::Variable> &mat) {
+  std::vector<Eigen::MatrixX<drake::symbolic::Expression>> vec;
+  for (int i = 0; i < mat.cols(); ++i)
+    vec.push_back(mat.col(i));
+  return vec;
+}
+
+template<typename To, typename From, typename Deleter>
+std::unique_ptr<To, Deleter> ps::GCSSmoothOpt::DynamicUniqueCast(std::unique_ptr<From, Deleter> &&p) {
+  if (To* cast = dynamic_cast<To*>(p.get())) {
+    std::unique_ptr<To, Deleter> result(cast, std::move(p.get_deleter()));
+    p.release();
+    return result;
+  }
+  // return std::unique_ptr<To, Deleter>(nullptr); // or throw std::bad_cast() if you prefer
+  throw std::runtime_error("dynamic_unique_cast failed");
 }

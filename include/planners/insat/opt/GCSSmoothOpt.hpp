@@ -45,6 +45,7 @@
 #include <chrono>
 
 #include <drake/common/trajectories/bezier_curve.h>
+#include <drake/common/trajectories/bspline_trajectory.h>
 #include <drake/common/trajectories/composite_trajectory.h>
 #include <drake/common/symbolic/decompose.h>
 #include <drake/solvers/constraint.h>
@@ -94,9 +95,10 @@ namespace ps {
     /// Sets up the GCS regions and edges
     GCSSmoothOpt(const std::vector<HPolyhedron>& regions,
            const std::vector<std::pair<int, int>>& edges_between_regions,
-           int order, int continuity, double h_min, double h_max,
+           int order, int continuity,
            double path_length_weight, double time_weight,
            Eigen::VectorXd& vel_lb, Eigen::VectorXd& vel_ub,
+           double h_min, double h_max, double hdot_min = 1e-6,
            bool verbose=false);
 
     GCSSmoothOpt (const GCSSmoothOpt &)=default;
@@ -166,9 +168,14 @@ namespace ps {
     void setupCostsAndConstraints();
     void formulateTimeCost();
     void formulatePathLengthCost();
-    void formulatePathContinuityConstraint();
+    void formulateContinuityConstraint();
     void formulateVelocityConstraint();
     void formulateCostsAndConstraints();
+    std::vector<Eigen::MatrixX<drake::symbolic::Expression>>
+          ControlPointsOf(const Eigen::MatrixX<drake::symbolic::Variable>& mat);
+// dynamic_unique_cast for unique_ptr
+    template <typename To, typename From, typename Deleter>
+    std::unique_ptr<To, Deleter> DynamicUniqueCast(std::unique_ptr<From, Deleter>&& p);
 
     bool verbose_;
 
@@ -178,6 +185,7 @@ namespace ps {
     int num_positions_;
     double h_min_;
     double h_max_;
+    double hdot_min_;
     Eigen::VectorXd vel_lb_;
     Eigen::VectorXd vel_ub_;
     std::shared_ptr<drake::geometry::optimization::GraphOfConvexSets> gcs_;
@@ -193,11 +201,13 @@ namespace ps {
     /// Variables
     Eigen::VectorX<drake::symbolic::Variable> u_h_;
     Eigen::VectorX<drake::symbolic::Variable> u_vars_;
-    drake::trajectories::BezierCurve<drake::symbolic::Expression> u_r_trajectory_;
+    drake::trajectories::BsplineTrajectory<drake::symbolic::Expression> u_r_trajectory_;
+    drake::trajectories::BsplineTrajectory<drake::symbolic::Expression> u_h_trajectory_;
 
     Eigen::VectorX<drake::symbolic::Variable> v_h_;
     Eigen::VectorX<drake::symbolic::Variable> v_vars_;
-    drake::trajectories::BezierCurve<drake::symbolic::Expression> v_r_trajectory_;
+    drake::trajectories::BsplineTrajectory<drake::symbolic::Expression> v_r_trajectory_;
+    drake::trajectories::BsplineTrajectory<drake::symbolic::Expression> v_h_trajectory_;
 
     /// Vertices and edges for optimization (for matrix operations over control points)
     std::vector<drake::geometry::optimization::GraphOfConvexSets::Vertex*> vertices_;
@@ -209,7 +219,7 @@ namespace ps {
         path_length_cost_;
 
     /// Constraints
-    std::pair<std::shared_ptr<drake::solvers::Constraint>, VectorXb> path_continuity_constraint_;
+    std::vector<std::pair<std::shared_ptr<drake::solvers::Constraint>, VectorXb>> continuity_constraint_;
     std::vector<std::pair<std::shared_ptr<drake::solvers::Constraint>, VectorXb>>
         velocity_constraint_;
     std::pair<std::shared_ptr<drake::solvers::Constraint>, VectorXb> start_point_constraint_;
