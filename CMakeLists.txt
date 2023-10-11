@@ -60,3 +60,11 @@ target_link_libraries(gcsopt_test
         ${drake_LIBRARIES}
         pthread)
 
+add_executable(bfs_test
+        examples/insatxgcs/bfs_test.cpp
+        src/common/insatxgcs/utils.cpp)
+
+target_link_libraries(bfs_test
+        ${drake_LIBRARIES}
+        pthread)
+
