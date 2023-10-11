@@ -68,6 +68,7 @@ namespace ps
         double cumulative_expansions_time_ = 0;
 
         std::unordered_map<std::string, std::vector<double>> action_eval_times_;
+        std::unordered_map<int, int> num_incoming_edges_map_;
     };
 }
 

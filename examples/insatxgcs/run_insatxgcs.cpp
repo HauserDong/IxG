@@ -269,16 +269,16 @@ int main(int argc, char* argv[])
   string planner_name = argv[1];
 
 
-  std::vector<HPolyhedron> regions = utils::DeserializeRegions("/home/gaussian/cmu_ri_phd/phd_research/temp_INSATxGCS/INSATxGCS-Planner/src/data/maze.csv");
-  auto edges_bw_regions = utils::DeserializeEdges("/home/gaussian/cmu_ri_phd/phd_research/temp_INSATxGCS/INSATxGCS-Planner/src/data/maze_edges.csv");
+  std::vector<HPolyhedron> regions = utils::DeserializeRegions("../examples/insatxgcs/resources/maze2d/maze.csv");
+  auto edges_bw_regions = utils::DeserializeEdges("../examples/insatxgcs/resources/maze2d/maze_edges.csv");
 
   int num_positions = 2;
   rm::dof = num_positions;
-  int order = 3;
+  int order = 1;
   double h_min = 1e-2;
   double h_max = 1;
   double path_len_weight = 1;
-  double time_weight = 1;
+  double time_weight = 0;
   Eigen::VectorXd vel_lb = -5 * Eigen::VectorXd::Ones(num_positions);
   Eigen::VectorXd vel_ub = 5 * Eigen::VectorXd::Ones(num_positions);
   bool verbose = false;
@@ -292,8 +292,8 @@ int main(int argc, char* argv[])
   // Define planner parameters
   ParamsType planner_params;
   planner_params["num_threads"] = num_threads;
-  planner_params["heuristic_weight"] = 1;
-  planner_params["timeout"] = 3600;
+  planner_params["heuristic_weight"] = 6;
+  planner_params["timeout"] = 7200;
   planner_params["num_positions"] = num_positions;
   planner_params["order"] = order;
   planner_params["h_min"] = h_min;
@@ -303,6 +303,7 @@ int main(int argc, char* argv[])
   planner_params["sampling_dt"] = 1e-2;
 
   ofstream log_file;
+  ofstream incom_edge_file;
 
   if ((planner_params["smart_opt"] == 1) && ((planner_name == "insat") || (planner_name == "pinsat")))
   {
@@ -316,6 +317,8 @@ int main(int argc, char* argv[])
   {
     log_file.open("../logs/" + planner_name + "_" + to_string(num_threads) + ".txt");
   }
+  incom_edge_file.open("../logs/" + planner_name + "_incom_edge_count_" + to_string(num_threads) + ".txt");
+
 
   if ((planner_name == "rrt") || (planner_name == "rrtconnect"))
   {
@@ -575,18 +578,16 @@ int main(int argc, char* argv[])
         exec_duration = plan_vec.size()*planner_params["sampling_dt"];
       }
 
+      for (const auto& it : planner_stats.num_incoming_edges_map_) {
+        incom_edge_file << it.first << " " << it.second << std::endl;
+      }
+      incom_edge_file << -1 << " " << -1 << std::endl;
 
     }
     else
     {
       cout << " | Plan not found!" << endl;
     }
-
-//    for (auto& op : *opt_vec_ptr) {
-//      op.CleanUp();
-//    }
-
-    // planner_params["heuristic_weight"] *= 2;
 
     log_file << run << " "
              << planner_stats.total_time_ << " "

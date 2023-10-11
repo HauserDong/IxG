@@ -166,7 +166,6 @@ namespace ps
 
   void INSATxGCS::updateState(InsatStatePtrType &state_ptr, std::vector<InsatStatePtrType> &ancestors,
                                  InsatActionPtrType &action_ptr, ActionSuccessor &action_successor) {
-    planner_stats_.num_evaluated_edges_++;
 
     if (action_successor.success_)
     {
@@ -178,6 +177,23 @@ namespace ps
 
       if (!successor_state_ptr->IsVisited())
       {
+        planner_stats_.num_evaluated_edges_++;
+
+        /// counting number of incoming rewirings to the same state
+        ///////////////////////////////////////////////////////////
+        int state_key = static_cast<int>(successor_state_ptr->GetStateVars()[0]);
+        auto it = planner_stats_.num_incoming_edges_map_.find(state_key);
+        if (it == planner_stats_.num_incoming_edges_map_.end())
+        {
+          planner_stats_.num_incoming_edges_map_[state_key] = 0;
+          planner_stats_.num_incoming_edges_map_[state_key]++;
+        }
+        else
+        {
+          planner_stats_.num_incoming_edges_map_[state_key]++;
+        }
+        ///////////////////////////////////////////////////////////
+
         TrajType traj;
         double cost = 0;
         double inc_cost = 0;
