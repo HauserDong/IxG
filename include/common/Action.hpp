@@ -14,7 +14,7 @@ public:
     Action(const std::string& type, ParamsType params = ParamsType(), bool is_expensive = true)
     : type_(type), params_(params), is_expensive_(is_expensive){};
     virtual ~Action(){};
-    virtual bool CheckPreconditions(const StateVarsType& state)=0; 
+    virtual bool CheckPreconditions(const StateVarsType& state, int thread_id=0)=0;
     virtual bool IsFeasible(const StateVarsType& state, int thread_id=0)
     {throw std::runtime_error("IsFeasible not implemented!");};
     virtual StateVarsType SampleFeasibleState(int thread_id=0)

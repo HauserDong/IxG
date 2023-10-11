@@ -50,7 +50,7 @@ namespace ps
     time_weight_ = params_["time_weight"];
   }
 
-  bool INSATxGCSAction::CheckPreconditions(const StateVarsType& state)
+  bool INSATxGCSAction::CheckPreconditions(const StateVarsType& state, int thread_id)
   {
     return true;
   }

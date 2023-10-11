@@ -62,7 +62,7 @@ namespace ps
                     OptVecPtrType opt,
                     bool is_expensive = true);
 
-    virtual bool CheckPreconditions(const StateVarsType& state);
+    virtual bool CheckPreconditions(const StateVarsType& state, int thread_id=0);
     ActionSuccessor GetSuccessor(const StateVarsType& state_vars, int thread_id);
     ActionSuccessor GetSuccessorLazy(const StateVarsType& state_vars, int thread_id);
     ActionSuccessor Evaluate(const StateVarsType& parent_state_vars, const StateVarsType& child_state_vars, int thread_id);

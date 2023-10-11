@@ -61,6 +61,7 @@
 #include <drake/solvers/mosek_solver.h>
 
 #include <common/insat/InsatTypes.hpp>
+#include <common/insatxgcs/utils.hpp>
 
 namespace ps {
 

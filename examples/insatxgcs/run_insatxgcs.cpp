@@ -292,8 +292,8 @@ int main(int argc, char* argv[])
   // Define planner parameters
   ParamsType planner_params;
   planner_params["num_threads"] = num_threads;
-  planner_params["heuristic_weight"] = 10;
-  planner_params["timeout"] = 50;
+  planner_params["heuristic_weight"] = 1;
+  planner_params["timeout"] = 3600;
   planner_params["num_positions"] = num_positions;
   planner_params["order"] = order;
   planner_params["h_min"] = h_min;
@@ -328,8 +328,8 @@ int main(int argc, char* argv[])
   std::vector<vector<double>> starts, goals;
   if (load_starts_goals_from_file)
   {
-    std::string starts_path = "../examples/insatxgcs/resources/maze2d/starts.txt";
-    std::string goals_path = "../examples/insatxgcs/resources/maze2d/goals.txt";
+    std::string starts_path = "../examples/insatxgcs/resources/maze2d/starts1.txt";
+    std::string goals_path = "../examples/insatxgcs/resources/maze2d/goals1.txt";
     loadStartsAndGoalsFromFile(starts, goals, starts_path, goals_path);
   }
 

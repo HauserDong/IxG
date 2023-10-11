@@ -2,6 +2,7 @@
 #define PLANNER_HPP
 
 #define VERBOSE 0
+#define OPTIMAL 1
 
 #include <functional>
 #include <future>

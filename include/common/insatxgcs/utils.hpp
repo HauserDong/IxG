@@ -14,7 +14,9 @@ using drake::geometry::optimization::HPolyhedron;
 namespace utils
 {
 
-// dynamic_unique_cast for unique_ptr
+  using VectorXb = Eigen::Matrix<bool, 1, Eigen::Dynamic>;
+
+  // dynamic_unique_cast for unique_ptr
   template <typename To, typename From, typename Deleter>
   std::unique_ptr<To, Deleter> DynamicUniqueCast(std::unique_ptr<From, Deleter>&& p) {
     if (To* cast = dynamic_cast<To*>(p.get())) {
@@ -47,5 +49,17 @@ namespace utils
   std::vector<HPolyhedron> DeserializeRegions(const std::string& file_path);
 
   void SerializeRegions(const std::vector<HPolyhedron>& regions, const std::string& file_path);
+
+  // Given a list of matrices, return the matrices with every column where all
+// of the matrices are zero in that column, along with a boolean vector
+// indicating which columns were preserved (true) or removed (false).
+  std::tuple<std::vector<Eigen::MatrixXd>, VectorXb> CondenseToNonzeroColumns(
+      std::vector<Eigen::MatrixXd> matrices);
+
+// Filters variables given a vector of variables along with a boolean vector
+// indicating which rows were preserved (true) or removed (false).
+  Eigen::VectorX<drake::symbolic::Variable> FilterVariables(
+      const Eigen::VectorX<drake::symbolic::Variable>& vars,
+      const VectorXb& nonzero_cols_mask);
 
 } // namespace utils

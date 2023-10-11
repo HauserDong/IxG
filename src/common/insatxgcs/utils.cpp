@@ -130,4 +130,47 @@ origin: https://github.com/scipy/scipy/blob/main/scipy/optimize/Zeros/brentq.c
     }
   }
 
+  std::tuple<std::vector<Eigen::MatrixXd>, VectorXb> CondenseToNonzeroColumns(std::vector<Eigen::MatrixXd> matrices) {
+    // Validate inputs.
+    DRAKE_DEMAND(matrices.size() > 0);
+    const int num_cols = matrices[0].cols();
+    for (const Eigen::MatrixXd& matrix : matrices) {
+      DRAKE_DEMAND(matrix.cols() == num_cols);
+    }
+
+    // Find non-zero columns.
+    VectorXb nonzero_cols_mask = VectorXb::Constant(num_cols, false);
+    for (const Eigen::MatrixXd& matrix : matrices) {
+      nonzero_cols_mask += matrix.cast<bool>().colwise().any();
+    }
+    const int nonzero_cols_count = nonzero_cols_mask.count();
+
+    // Create the output, copying only the non-zero columns.
+    std::vector<Eigen::MatrixXd> condensed_matrices;
+    for (const Eigen::MatrixXd& matrix : matrices) {
+      Eigen::MatrixXd& condensed_matrix =
+          condensed_matrices.emplace_back(matrix.rows(), nonzero_cols_count);
+      int condensed_col = 0;
+      for (int orig_col = 0; orig_col < matrix.cols(); ++orig_col) {
+        if (nonzero_cols_mask(orig_col)) {
+          condensed_matrix.col(condensed_col) = matrix.col(orig_col);
+          condensed_col++;
+        }
+      }
+    }
+    return std::make_tuple(condensed_matrices, nonzero_cols_mask);
+  }
+
+  Eigen::VectorX<drake::symbolic::Variable>
+  FilterVariables(const Eigen::VectorX<drake::symbolic::Variable> &vars, const VectorXb &nonzero_cols_mask) {
+    Eigen::VectorX<drake::symbolic::Variable> vars_dense(nonzero_cols_mask.count());
+    int row = 0;
+    for (int i = 0; i < vars.size(); ++i) {
+      if (nonzero_cols_mask(i)) {
+        vars_dense(row++) = vars(i);
+      }
+    }
+    return vars_dense;
+  }
+
 } // namespace utils

@@ -44,6 +44,8 @@ namespace ps
 
     InsatStatePtrType constructInsatState(const StateVarsType& state);
 
+    InsatStatePtrType constructInsatPath(std::vector<InsatStatePtrType> &ancestors, const StateVarsType& state);
+
     void cleanUp();
 
     void resetStates();

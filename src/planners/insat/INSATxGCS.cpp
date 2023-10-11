@@ -33,6 +33,7 @@
  */
 
 #include <planners/insat/INSATxGCS.hpp>
+#include <boost/functional/hash.hpp>
 
 namespace ps
 {
@@ -148,11 +149,17 @@ namespace ps
       {
         // Evaluate the edge
         auto action_successor = action_ptr->GetSuccessor(state_ptr->GetStateVars());
+#if OPTIMAL
+        if (action_successor.success_) {
+          for (const auto& anc : ancestors) {
+            if (anc->GetStateVars()[0] == action_successor.successor_state_vars_costs_.back().first[0]) {
+              action_successor.success_ = false;
+              break;
+            }
+          }
+        }
+#endif
         updateState(state_ptr, ancestors, action_ptr, action_successor);
-//        for (auto& succ : action_successor.successor_state_vars_costs_) {
-//          auto as = ActionSuccessor(true, {succ});
-//          updateState(state_ptr, ancestors, action_ptr, as);
-//        }
       }
     }
   }
@@ -163,7 +170,11 @@ namespace ps
 
     if (action_successor.success_)
     {
+#if OPTIMAL
+      auto successor_state_ptr = constructInsatPath(ancestors, action_successor.successor_state_vars_costs_.back().first);
+#else
       auto successor_state_ptr = constructInsatState(action_successor.successor_state_vars_costs_.back().first);
+#endif
 
       if (!successor_state_ptr->IsVisited())
       {
@@ -263,6 +274,33 @@ namespace ps
 
     return insat_state_ptr;
   }
+
+  InsatStatePtrType
+  INSATxGCS::constructInsatPath(std::vector<InsatStatePtrType> &ancestors, const ps::StateVarsType &state) {
+    size_t key = 0;
+    boost::hash_combine(key, state[0]);
+    for (auto& anc: ancestors)
+    {
+      boost::hash_combine(key, anc->GetStateVars()[0]);
+    }
+
+    auto it = insat_state_map_.find(key);
+    InsatStatePtrType insat_state_ptr;
+
+    // Check if state exists in the search state map
+    if (it == insat_state_map_.end())
+    {
+      insat_state_ptr = new InsatState(state);
+      insat_state_map_.insert(std::pair<size_t, InsatStatePtrType>(key, insat_state_ptr));
+    }
+    else
+    {
+      insat_state_ptr = it->second;
+    }
+
+    return insat_state_ptr;
+  }
+
 
   void INSATxGCS::cleanUp() {
     for (auto& state_it : insat_state_map_)
