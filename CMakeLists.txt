@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.2)
 
-project (parallel_search)
+project (ixg)
 add_compile_options(-std=c++17)
 
 list(APPEND CMAKE_PREFIX_PATH /opt/drake)
