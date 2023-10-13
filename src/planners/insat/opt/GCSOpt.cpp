@@ -203,6 +203,10 @@ ps::VertexId ps::GCSOpt::AddStart(Eigen::VectorXd &start) {
   edge_id_to_edge_[edges_.back()->id().get_value()] = edges_.back();
   start_eit_ = edges_.end()-1;
 
+  GCSEdge* vu_edge = gcs_->AddEdge(start_region_vertex, start_vertex);
+  edges_.emplace_back(vu_edge);
+  edge_id_to_edge_[edges_.back()->id().get_value()] = edges_.back();
+
   return start_vertex->id();
 }
 
@@ -249,6 +253,10 @@ ps::VertexId ps::GCSOpt::AddGoal(Eigen::VectorXd &goal) {
   edges_.emplace_back(uv_edge);
   edge_id_to_edge_[edges_.back()->id().get_value()] = edges_.back();
   goal_eit_ = edges_.end()-1;
+
+  GCSEdge* vu_edge = gcs_->AddEdge(goal_vertex, goal_region_vertex);
+  edges_.emplace_back(vu_edge);
+  edge_id_to_edge_[edges_.back()->id().get_value()] = edges_.back();
 
   return goal_vertex->id();
 }
