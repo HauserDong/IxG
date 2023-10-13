@@ -31,6 +31,8 @@ namespace ps
   protected:
     void initialize();
 
+    void calculateBounds();
+
     std::vector<InsatStatePtrType> getStateAncestors(const InsatStatePtrType state_ptr, bool reverse=false) const;
 
     void expandState(InsatStatePtrType state_ptr);
@@ -54,6 +56,13 @@ namespace ps
 
     void exit();
 
+    /// Paths to every node from start and goal
+    std::unordered_map<int, std::vector<int>> paths_from_start_;
+    std::unordered_map<int, std::vector<int>> paths_from_goal_;
+
+    /// Map that maps state IDs to lower-bound and upper-bound costs from start to goal via them.
+    std::unordered_map<int, double> lb_cost_;
+    std::unordered_map<int, double> ub_cost_;
 
     std::vector<std::shared_ptr<InsatAction>> insat_actions_ptrs_;
     InsatStatePtrType start_state_ptr_;

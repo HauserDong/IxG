@@ -31,6 +31,7 @@ set(INSATxGCS_SOURCES
         src/common/Edge.cpp
         src/common/insat/InsatEdge.cpp
         src/common/insatxgcs/utils.cpp
+        src/common/insatxgcs/gcsbfs.cpp
         src/planners/Planner.cpp
         src/planners/GepasePlanner.cpp
         src/planners/insat/INSATxGCS.cpp
@@ -62,7 +63,8 @@ target_link_libraries(gcsopt_test
 
 add_executable(bfs_test
         examples/insatxgcs/bfs_test.cpp
-        src/common/insatxgcs/utils.cpp)
+        src/common/insatxgcs/utils.cpp
+        src/common/insatxgcs/gcsbfs.cpp)
 
 target_link_libraries(bfs_test
         ${drake_LIBRARIES}

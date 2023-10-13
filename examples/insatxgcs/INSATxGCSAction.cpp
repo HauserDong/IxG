@@ -44,7 +44,7 @@ namespace ps
   {
     const auto& edges_between_regions = (*opt)[0].GetGCS()->Edges();
     for (auto& e : edges_between_regions) {
-      state_id_to_succ_id_[e->u().id().get_value()].push_back(e->v().id().get_value());
+      adjacency_list_[e->u().id().get_value()].push_back(e->v().id().get_value());
     }
     path_length_weight_ = params_["path_length_weight"];
     time_weight_ = params_["time_weight"];
@@ -57,14 +57,14 @@ namespace ps
 
   ActionSuccessor INSATxGCSAction::GetSuccessor(const StateVarsType& state_vars, int thread_id)
   {
-    if (state_id_to_succ_id_.find(static_cast<int>(state_vars[0])) == state_id_to_succ_id_.end()) {
+    if (adjacency_list_.find(static_cast<int>(state_vars[0])) == adjacency_list_.end()) {
       throw std::runtime_error("State " + std::to_string(static_cast<int>(state_vars[0])) + " not found in successor map!!");
     }
 
     int idx = std::stoi(type_);
-    if (state_id_to_succ_id_[static_cast<int>(state_vars[0])].size() > idx) {
+    if (adjacency_list_[static_cast<int>(state_vars[0])].size() > idx) {
       StateVarsType succ;
-      succ.push_back(state_id_to_succ_id_[static_cast<int>(state_vars[0])][idx]);
+      succ.push_back(adjacency_list_[static_cast<int>(state_vars[0])][idx]);
       return ActionSuccessor(true, {std::make_pair(succ, 1.0)});
     }
     return ActionSuccessor(false, {make_pair(StateVarsType(), -DINF)});
@@ -81,10 +81,10 @@ namespace ps
   }
 
   void INSATxGCSAction::UpdateStateToSuccs() {
-    state_id_to_succ_id_.clear();
+    adjacency_list_.clear();
     const auto& edges_between_regions = (*opt_)[0].GetGCS()->Edges();
     for (auto& e : edges_between_regions) {
-      state_id_to_succ_id_[static_cast<int>(e->u().id().get_value())].push_back(static_cast<int>(e->v().id().get_value()));
+      adjacency_list_[static_cast<int>(e->u().id().get_value())].push_back(static_cast<int>(e->v().id().get_value()));
     }
   }
 
@@ -134,6 +134,21 @@ namespace ps
     return TrajType (soln.first, soln.second);
   }
 
+  TrajType INSATxGCSAction::optimize(const std::vector<int> &gcs_nodes, int thread_id) {
+    const auto& vivm = (*opt_)[thread_id].GetVertexIdToVertexMap();
+    std::vector<VertexId> solve_vids;
+    for (auto vid : gcs_nodes) {
+      auto it = vivm.find(vid);
+      if (it == vivm.end()) {
+        throw std::runtime_error("State with VId:" + std::to_string(vid) + " not found in GCS graph!!");
+      }
+      solve_vids.push_back(it->second->id());
+    }
+
+    auto soln = (*opt_)[thread_id].Solve(solve_vids);
+    return TrajType (soln.first, soln.second);
+  }
+
   double INSATxGCSAction::getCost(const TrajType &traj, int thread_id) const
   {
 //    return traj.result_.get_optimal_cost();
@@ -172,5 +187,6 @@ namespace ps
     return cost;
   }
 
+  std::unordered_map<int, std::vector<int>> INSATxGCSAction::getAdjacencyList() {return adjacency_list_;}
 
 }

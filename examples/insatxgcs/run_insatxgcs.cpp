@@ -292,7 +292,7 @@ int main(int argc, char* argv[])
   // Define planner parameters
   ParamsType planner_params;
   planner_params["num_threads"] = num_threads;
-  planner_params["heuristic_weight"] = 6;
+  planner_params["heuristic_weight"] = 1;
   planner_params["timeout"] = 7200;
   planner_params["num_positions"] = num_positions;
   planner_params["order"] = order;
