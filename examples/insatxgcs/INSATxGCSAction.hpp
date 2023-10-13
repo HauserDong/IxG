@@ -90,7 +90,9 @@ namespace ps
     TrajType optimize(const std::vector<StateVarsType> &ancestors,
                               const StateVarsType& successor,
                               int thread_id=0);
+    TrajType optimize(const std::vector<int> &gcs_nodes, int thread_id=0);
     double getCost(const TrajType& traj, int thread_id) const;
+    std::unordered_map<int, std::vector<int>> getAdjacencyList();
 
     MatDf sampleTrajectory(const GCSTraj::TrajInstanceType &traj, double dt) const;
     double calculateCost(const MatDf &disc_traj) const;
@@ -104,7 +106,7 @@ namespace ps
 
     /// Optimizer stuff
     OptVecPtrType opt_;
-    std::unordered_map<int, std::vector<int>> state_id_to_succ_id_;
+    std::unordered_map<int, std::vector<int>> adjacency_list_;
     std::vector<GCSVertex*> gcs_vertices_;
 
   };
