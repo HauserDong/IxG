@@ -91,6 +91,7 @@ namespace ps
                               const StateVarsType& successor,
                               int thread_id=0);
     TrajType optimize(const std::vector<int> &gcs_nodes, int thread_id=0);
+    double lowerboundCost(const std::vector<int> &gcs_nodes, int thread_id=0);
     double getCost(const TrajType& traj, int thread_id) const;
     std::unordered_map<int, std::vector<int>> getAdjacencyList();
 

@@ -96,6 +96,7 @@ ps::GCSOpt::GCSOpt(const std::vector<HPolyhedron> &regions,
                    Eigen::VectorXd& vel_lb, Eigen::VectorXd& vel_ub,
                    bool verbose)
         : verbose_(verbose),
+          hpoly_regions_(regions),
           order_(order),
           h_min_(h_min),
           h_max_(h_max),
@@ -259,6 +260,22 @@ ps::VertexId ps::GCSOpt::AddGoal(Eigen::VectorXd &goal) {
   edge_id_to_edge_[edges_.back()->id().get_value()] = edges_.back();
 
   return goal_vertex->id();
+}
+
+double ps::GCSOpt::LowerboundSolve(const std::vector<int>& path_vids) {
+  Eigen::MatrixXd ctrs(path_vids.size(), num_positions_);
+  for (int i=0; i<path_vids.size(); ++i) {
+    auto& cset = vertex_id_to_vertex_[path_vids[i]]->set();
+//    auto& hpset = dynamic_cast<const HPolyhedron&>(cset);
+//    ctrs.row(i) = hpset.ChebyshevCenter();
+    std::cout << cset.MaybeGetFeasiblePoint().value() << std::endl;
+    ctrs.row(i) = cset.MaybeGetFeasiblePoint().value();
+  }
+  double dist = 0;
+  for (int i=0; i<ctrs.rows()-1; ++i) {
+    dist += (ctrs.row(i+1) - ctrs.row(i)).norm();
+  }
+  return dist;
 }
 
 std::pair<drake::trajectories::CompositeTrajectory<double>,

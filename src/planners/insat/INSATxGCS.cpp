@@ -34,6 +34,7 @@
 
 #include <planners/insat/INSATxGCS.hpp>
 #include <boost/functional/hash.hpp>
+#include <common/insatxgcs/gcsbfs.hpp>
 
 namespace ps
 {
@@ -114,6 +115,78 @@ namespace ps
     insat_state_open_list_.push(start_state_ptr_);
 
     constructInsatActions();
+    calculateBounds();
+  }
+
+  void INSATxGCS::calculateBounds() {
+    /// Calculating the lower and upper bounds for pruning
+    // Run BFS on underlying GCS graph from start and from goal
+    auto gcs_adjacency = insat_actions_ptrs_[0]->getAdjacencyList();
+    ixg::GCSBFS gcsbfs;
+    gcsbfs.SetAdjecency(gcs_adjacency);
+
+    // Run BFS from start
+    paths_from_start_ = gcsbfs.BFSWithPaths(static_cast<int>(start_state_ptr_->GetStateVars()[0]));
+    // Run BFS from goal
+    int goal_state_id;
+    for (auto& adj : gcs_adjacency) {
+      StateVarsType state(1, adj.first);
+      if (goal_checker_(state)) {
+        goal_state_id = adj.first;
+        paths_from_goal_ = gcsbfs.BFSWithPaths(static_cast<int>(state[0]));
+        break;
+      }
+    }
+
+    // calculate bounds
+    auto init_soln_path = paths_from_start_[goal_state_id];
+    init_soln_path.push_back(goal_state_id);
+    auto init_soln_traj = insat_actions_ptrs_[0]->optimize(init_soln_path);
+    if (!init_soln_traj.isValid()) {
+      throw std::runtime_error("Couldn't find initial solution trajectory.");
+    }
+    double global_ub = insat_actions_ptrs_[0]->getCost(init_soln_traj);
+
+    int count_infeasible = 0;
+    for (auto& adj : gcs_adjacency) {
+//      // Get paths from start and goal
+//      auto pfs = paths_from_start_[adj.first];
+//      pfs.push_back(adj.first);
+//      auto pfg = paths_from_goal_[adj.first];
+//      pfg.push_back(adj.first);
+//      // Concatenate paths
+//      std::reverse(pfg.begin(), pfg.end());
+//      pfs.insert(pfs.end(), pfg.begin()+1, pfg.end());
+//
+//      // Upper bound
+//      double ub;
+//      auto ub_traj = insat_actions_ptrs_[0]->optimize(pfs);
+//      if (!ub_traj.isValid()) {
+//        count_infeasible++;
+//        ub = DINF;
+//      } else {
+//        ub = insat_actions_ptrs_[0]->getCost(ub_traj);
+//      }
+//      ub_cost_[adj.first] = std::min(global_ub, ub);
+//      if (ub_cost_[adj.first] < global_ub) {
+//        std::cout << "Found a better UB: " << ub_cost_[adj.first] << std::endl;
+//      }
+      ub_cost_[adj.first] = global_ub;
+
+      // Lower bound
+      StateVarsType state(1, adj.first);
+//      lb_cost_[adj.first] = unary_heuristic_generator_(state);
+      auto pfg = paths_from_goal_[adj.first];
+      std::reverse(pfg.begin(), pfg.end());
+      lb_cost_[adj.first] = insat_actions_ptrs_[0]->lowerboundCost(pfg);
+    }
+
+//    std::cout << "% infeasible UBs: "
+//              << (((double)count_infeasible)/((double)gcs_adjacency.size()))*100 << std::endl;
+//    std::cout << "goal ub cost: " << ub_cost_[goal_state_id] << std::endl;
+    std::cout << "LB set successfully!" << std::endl;
+    std::cout << "UB set successfully!" << std::endl;
+
   }
 
   std::vector<InsatStatePtrType>
@@ -151,6 +224,7 @@ namespace ps
         auto action_successor = action_ptr->GetSuccessor(state_ptr->GetStateVars());
 #if OPTIMAL
         if (action_successor.success_) {
+          /// Do not allow cycles
           for (const auto& anc : ancestors) {
             if (anc->GetStateVars()[0] == action_successor.successor_state_vars_costs_.back().first[0]) {
               action_successor.success_ = false;
@@ -216,6 +290,11 @@ namespace ps
         inc_cost = state_ptr->GetIncomingInsatEdgePtr()?
                 action_ptr->getCost(traj) - action_ptr->getCost(state_ptr->GetIncomingInsatEdgePtr()->GetTraj()):
                 action_ptr->getCost(traj);
+
+        double lb = new_g_val + lb_cost_[static_cast<int>(successor_state_ptr->GetStateVars()[0])];
+        if (lb > ub_cost_[static_cast<int>(successor_state_ptr->GetStateVars()[0])]) {
+          return;
+        }
 
         if (successor_state_ptr->GetGValue() > new_g_val)
         {

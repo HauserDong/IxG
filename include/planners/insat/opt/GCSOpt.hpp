@@ -76,6 +76,8 @@ namespace ps {
 
     VertexId AddGoal(Eigen::VectorXd& goal);
 
+    double LowerboundSolve(const std::vector<int>& path_vids);
+
     std::pair<drake::trajectories::CompositeTrajectory<double>,
             drake::solvers::MathematicalProgramResult> Solve(std::vector<VertexId>& path_vids,
                                                              std::vector<EdgeId>& path_eids);
@@ -145,6 +147,7 @@ namespace ps {
     double h_max_;
     Eigen::VectorXd vel_lb_;
     Eigen::VectorXd vel_ub_;
+    std::vector<HPolyhedron> hpoly_regions_;
     std::shared_ptr<drake::geometry::optimization::GraphOfConvexSets> gcs_;
 
     /// Terminals

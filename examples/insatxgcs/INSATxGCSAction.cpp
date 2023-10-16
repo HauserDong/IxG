@@ -149,6 +149,10 @@ namespace ps
     return TrajType (soln.first, soln.second);
   }
 
+  double INSATxGCSAction::lowerboundCost(const std::vector<int> &gcs_nodes, int thread_id) {
+    return (*opt_)[thread_id].LowerboundSolve(gcs_nodes);
+  }
+
   double INSATxGCSAction::getCost(const TrajType &traj, int thread_id) const
   {
 //    return traj.result_.get_optimal_cost();
