@@ -97,6 +97,7 @@ ps::GCSOpt::GCSOpt(const std::vector<HPolyhedron> &regions,
                    bool verbose)
         : verbose_(verbose),
           hpoly_regions_(regions),
+          edges_bw_regions_(edges_between_regions),
           order_(order),
           h_min_(h_min),
           h_max_(h_max),
@@ -136,7 +137,6 @@ ps::GCSOpt::GCSOpt(const std::vector<HPolyhedron> &regions,
   preprocess(regions_cs, edges_between_regions);
   end_time = std::chrono::high_resolution_clock::now();
   if (verbose_) std::cout << "Done setting up vars and preprocessing!!!" << std::chrono::duration_cast<std::chrono::nanoseconds>(end_time - start_time).count()/1e9 << "s" << std::endl;
-
 }
 
 void ps::GCSOpt::FormulateAndSetCostsAndConstraints() {
@@ -262,18 +262,38 @@ ps::VertexId ps::GCSOpt::AddGoal(Eigen::VectorXd &goal) {
   return goal_vertex->id();
 }
 
-double ps::GCSOpt::LowerboundSolve(const std::vector<int>& path_vids) {
-  Eigen::MatrixXd ctrs(path_vids.size(), num_positions_);
-  for (int i=0; i<path_vids.size(); ++i) {
-    auto& cset = vertex_id_to_vertex_[path_vids[i]]->set();
-//    auto& hpset = dynamic_cast<const HPolyhedron&>(cset);
-//    ctrs.row(i) = hpset.ChebyshevCenter();
-    std::cout << cset.MaybeGetFeasiblePoint().value() << std::endl;
-    ctrs.row(i) = cset.MaybeGetFeasiblePoint().value();
+double ps::GCSOpt::LowerboundSolve(const std::vector<int>& path_ids) {
+//  double dist = 0;
+//  Eigen::MatrixXd ctrs(1, num_positions_);
+//  for (int i=0; i < path_ids.size(); ++i) {
+//    if (vertex_id_to_regions_.find(path_ids[i]) != vertex_id_to_regions_.end()) {
+//      auto& cset = vertex_id_to_regions_[path_ids[i]];
+//      ctrs.row(i) = cset.ChebyshevCenter();
+//      ctrs.conservativeResize(ctrs.rows()+1, ctrs.cols());
+//    }
+//  }
+//  for (int i=0; i<ctrs.rows()-1; ++i) {
+//    dist += (ctrs.row(i+1) - ctrs.row(i)).norm();
+//  }
+//  return dist;
+
+  /// Setting up lower bound solver
+  static auto lb_solver = GCSOpt(hpoly_regions_, edges_bw_regions_, 1,
+                            h_min_, h_max_, 1, 0,
+                              vel_lb_, vel_ub_, 0);
+
+  std::vector<VertexId> path_vids;
+  for (const auto& id : path_ids) {
+    path_vids.push_back(vertex_id_to_vertex_[id]->id());
   }
+  auto lb_soln = lb_solver.Solve(path_vids);
+  auto lb_traj = lb_soln.first;
+  auto p0 = lb_traj.value(lb_traj.start_time());
   double dist = 0;
-  for (int i=0; i<ctrs.rows()-1; ++i) {
-    dist += (ctrs.row(i+1) - ctrs.row(i)).norm();
+  for (double t=lb_traj.start_time(); t<=lb_traj.end_time(); t+=1e-1) {
+    auto pt = lb_traj.value(t);
+    dist += (pt-p0).norm();
+    p0 = pt;
   }
   return dist;
 }
@@ -475,6 +495,7 @@ void ps::GCSOpt::preprocess(const drake::geometry::optimization::ConvexSets &reg
             drake::geometry::optimization::CartesianProduct(vertex_set),
             fmt::format("{}: {}", "v" + std::to_string(i), i)));
     vertex_id_to_vertex_[vertices_.back()->id().get_value()] = vertices_.back();
+    vertex_id_to_regions_[vertices_.back()->id().get_value()] = hpoly_regions_[i];
 
 //    std::cout << "Added vertex with id: " << vertices_.back()->id().get_value() << std::endl;
   }

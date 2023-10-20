@@ -126,7 +126,8 @@ namespace ps
     gcsbfs.SetAdjecency(gcs_adjacency);
 
     // Run BFS from start
-    paths_from_start_ = gcsbfs.BFSWithPaths(static_cast<int>(start_state_ptr_->GetStateVars()[0]));
+    int start_state_id = static_cast<int>(start_state_ptr_->GetStateVars()[0]);
+    paths_from_start_ = gcsbfs.BFSWithPaths(start_state_id);
     // Run BFS from goal
     int goal_state_id;
     for (auto& adj : gcs_adjacency) {
@@ -146,6 +147,13 @@ namespace ps
       throw std::runtime_error("Couldn't find initial solution trajectory.");
     }
     double global_ub = insat_actions_ptrs_[0]->getCost(init_soln_traj);
+
+//    init_soln_traj.disc_traj_ = insat_actions_ptrs_[0]->sampleTrajectory(init_soln_traj.traj_, 0.1);
+//    std::cout << init_soln_traj.disc_traj_.transpose() << std::endl;
+//    for (auto isp : init_soln_path) {
+//      std::cout << isp << ",";
+//    }
+//    std::cout << std::endl;
 
     int count_infeasible = 0;
     for (auto& adj : gcs_adjacency) {
@@ -174,18 +182,31 @@ namespace ps
       ub_cost_[adj.first] = global_ub;
 
       // Lower bound
-      StateVarsType state(1, adj.first);
+      // Option 1
+//      StateVarsType state(1, adj.first);
 //      lb_cost_[adj.first] = unary_heuristic_generator_(state);
+
+      // Option 2
       auto pfg = paths_from_goal_[adj.first];
       std::reverse(pfg.begin(), pfg.end());
+      if (pfg.empty()) {
+        lb_cost_[adj.first] = 0;
+        continue;
+      }
       lb_cost_[adj.first] = insat_actions_ptrs_[0]->lowerboundCost(pfg);
+
+      // Option 3
+//      lb_cost_[adj.first] = pfg.size();
+
+      std::cout << adj.first << " " << lb_cost_[adj.first] << std::endl;
+      assert(ub_cost_[adj.first] >= lb_cost_[adj.first]);
     }
 
 //    std::cout << "% infeasible UBs: "
 //              << (((double)count_infeasible)/((double)gcs_adjacency.size()))*100 << std::endl;
 //    std::cout << "goal ub cost: " << ub_cost_[goal_state_id] << std::endl;
-    std::cout << "LB set successfully!" << std::endl;
-    std::cout << "UB set successfully!" << std::endl;
+    std::cout << "LB set successfully! lb from start: " << lb_cost_[start_state_id] << std::endl;
+    std::cout << "UB set successfully! global_ub: " << global_ub << std::endl;
 
   }
 

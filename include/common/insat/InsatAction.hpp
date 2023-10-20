@@ -32,6 +32,7 @@ namespace ps
                                 int thread_id=0) = 0;
       virtual TrajType optimize(const std::vector<int> &gcs_nodes, int thread_id=0) = 0;
       virtual double lowerboundCost(const std::vector<int> &gcs_nodes, int thread_id=0) = 0;
+      virtual MatDf sampleTrajectory(const GCSTraj::TrajInstanceType &traj, double dt) const = 0;
       virtual double getCost(const TrajType& traj, int thread_id=0) const =0;
       virtual bool isFeasible(MatDf& traj, int thread_id) const =0;
       virtual std::vector<double> SampleFeasibleState(int thread_id){};

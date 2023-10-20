@@ -76,7 +76,7 @@ namespace ps {
 
     VertexId AddGoal(Eigen::VectorXd& goal);
 
-    double LowerboundSolve(const std::vector<int>& path_vids);
+    double LowerboundSolve(const std::vector<int>& path_ids);
 
     std::pair<drake::trajectories::CompositeTrajectory<double>,
             drake::solvers::MathematicalProgramResult> Solve(std::vector<VertexId>& path_vids,
@@ -148,6 +148,7 @@ namespace ps {
     Eigen::VectorXd vel_lb_;
     Eigen::VectorXd vel_ub_;
     std::vector<HPolyhedron> hpoly_regions_;
+    std::vector<std::pair<int, int>> edges_bw_regions_;
     std::shared_ptr<drake::geometry::optimization::GraphOfConvexSets> gcs_;
 
     /// Terminals
@@ -182,7 +183,12 @@ namespace ps {
             velocity_constraint_;
     std::pair<std::shared_ptr<drake::solvers::Constraint>, VectorXb> start_point_constraint_;
 
+    /// Lowerbound solver
+    std::shared_ptr<GCSOpt> lb_solver_;
+
     /// Maps
+    /// Dict for vertex id to vertex
+    std::unordered_map<int64_t, HPolyhedron> vertex_id_to_regions_;
     /// Dict for vertex id to vertex
     std::unordered_map<int64_t, drake::geometry::optimization::GraphOfConvexSets::Vertex*> vertex_id_to_vertex_;
     /// Dict for vertex id to cost binding
@@ -206,7 +212,6 @@ namespace ps {
     bool enable_path_length_cost_;
     Eigen::MatrixXd path_length_weight_;
     bool enable_path_velocity_constraint_;
-
 
   };
 }
