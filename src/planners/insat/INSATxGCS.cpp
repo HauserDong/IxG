@@ -131,10 +131,10 @@ namespace ps
     // Run BFS from goal
     int goal_state_id;
     for (auto& adj : gcs_adjacency) {
-      StateVarsType state(1, adj.first);
-      if (goal_checker_(state)) {
+      StateVarsType goal_state(1, adj.first);
+      if (goal_checker_(goal_state)) {
         goal_state_id = adj.first;
-        paths_from_goal_ = gcsbfs.BFSWithPaths(static_cast<int>(state[0]));
+        paths_from_goal_ = gcsbfs.BFSWithPaths(static_cast<int>(goal_state[0]));
         break;
       }
     }
@@ -148,12 +148,6 @@ namespace ps
     }
     double global_ub = insat_actions_ptrs_[0]->getCost(init_soln_traj);
 
-//    init_soln_traj.disc_traj_ = insat_actions_ptrs_[0]->sampleTrajectory(init_soln_traj.traj_, 0.1);
-//    std::cout << init_soln_traj.disc_traj_.transpose() << std::endl;
-//    for (auto isp : init_soln_path) {
-//      std::cout << isp << ",";
-//    }
-//    std::cout << std::endl;
 
     int count_infeasible = 0;
     for (auto& adj : gcs_adjacency) {
@@ -198,7 +192,7 @@ namespace ps
       // Option 3
 //      lb_cost_[adj.first] = pfg.size();
 
-      std::cout << adj.first << " " << lb_cost_[adj.first] << std::endl;
+//      std::cout << adj.first << " " << lb_cost_[adj.first] << std::endl;
       assert(ub_cost_[adj.first] >= lb_cost_[adj.first]);
     }
 
@@ -274,6 +268,7 @@ namespace ps
       {
         planner_stats_.num_evaluated_edges_++;
 
+#if OPTIMAL
         /// counting number of incoming rewirings to the same state
         ///////////////////////////////////////////////////////////
         int state_key = static_cast<int>(successor_state_ptr->GetStateVars()[0]);
@@ -288,6 +283,7 @@ namespace ps
           planner_stats_.num_incoming_edges_map_[state_key]++;
         }
         ///////////////////////////////////////////////////////////
+#endif
 
         TrajType traj;
         double cost = 0;
@@ -312,10 +308,13 @@ namespace ps
                 action_ptr->getCost(traj) - action_ptr->getCost(state_ptr->GetIncomingInsatEdgePtr()->GetTraj()):
                 action_ptr->getCost(traj);
 
+#if OPTIMAL
         double lb = new_g_val + lb_cost_[static_cast<int>(successor_state_ptr->GetStateVars()[0])];
-        if (lb > ub_cost_[static_cast<int>(successor_state_ptr->GetStateVars()[0])]) {
+        if (0.9*lb > ub_cost_[static_cast<int>(successor_state_ptr->GetStateVars()[0])]) {
+          planner_stats_.num_pruned_edges_++;
           return;
         }
+#endif
 
         if (successor_state_ptr->GetGValue() > new_g_val)
         {
