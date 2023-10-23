@@ -40,9 +40,11 @@ namespace ps
   INSATxGCSAction::INSATxGCSAction(const std::string& type,
                                    ParamsType params,
                                    OptVecPtrType opt,
-                                   bool is_expensive) : InsatAction(type, params, is_expensive), opt_(opt)
+                                   OptType& lb_opt,
+                                   bool is_expensive) : InsatAction(type, params, is_expensive),
+                                                        opt_(opt), lb_opt_(lb_opt)
   {
-    const auto& edges_between_regions = (*opt)[0].GetGCS()->Edges();
+    const auto& edges_between_regions = (*opt_)[0].GetGCS()->Edges();
     for (auto& e : edges_between_regions) {
       adjacency_list_[e->u().id().get_value()].push_back(e->v().id().get_value());
     }
@@ -151,6 +153,7 @@ namespace ps
 
   double INSATxGCSAction::lowerboundCost(const std::vector<int> &gcs_nodes, int thread_id) {
     return (*opt_)[thread_id].LowerboundSolve(gcs_nodes);
+//    return lb_opt_.LowerboundSolve(gcs_nodes);
   }
 
   double INSATxGCSAction::getCost(const TrajType &traj, int thread_id) const

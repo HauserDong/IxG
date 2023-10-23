@@ -60,6 +60,7 @@ namespace ps
     INSATxGCSAction(const std::string& type,
                     ParamsType params,
                     OptVecPtrType opt,
+                    OptType& lb_opt,
                     bool is_expensive = true);
 
     virtual bool CheckPreconditions(const StateVarsType& state, int thread_id=0);
@@ -107,6 +108,7 @@ namespace ps
 
     /// Optimizer stuff
     OptVecPtrType opt_;
+    OptType lb_opt_;
     std::unordered_map<int, std::vector<int>> adjacency_list_;
     std::vector<GCSVertex*> gcs_vertices_;
 
