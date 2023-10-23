@@ -277,16 +277,11 @@ double ps::GCSOpt::LowerboundSolve(const std::vector<int>& path_ids) {
 //  }
 //  return dist;
 
-  /// Setting up lower bound solver
-  static auto lb_solver = GCSOpt(hpoly_regions_, edges_bw_regions_, 1,
-                            h_min_, h_max_, 1, 0,
-                              vel_lb_, vel_ub_, 0);
-
   std::vector<VertexId> path_vids;
   for (const auto& id : path_ids) {
     path_vids.push_back(vertex_id_to_vertex_[id]->id());
   }
-  auto lb_soln = lb_solver.Solve(path_vids);
+  auto lb_soln = Solve(path_vids);
   auto lb_traj = lb_soln.first;
   auto p0 = lb_traj.value(lb_traj.start_time());
   double dist = 0;
