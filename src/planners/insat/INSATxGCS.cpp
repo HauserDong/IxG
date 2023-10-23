@@ -151,28 +151,6 @@ namespace ps
 
     int count_infeasible = 0;
     for (auto& adj : gcs_adjacency) {
-//      // Get paths from start and goal
-//      auto pfs = paths_from_start_[adj.first];
-//      pfs.push_back(adj.first);
-//      auto pfg = paths_from_goal_[adj.first];
-//      pfg.push_back(adj.first);
-//      // Concatenate paths
-//      std::reverse(pfg.begin(), pfg.end());
-//      pfs.insert(pfs.end(), pfg.begin()+1, pfg.end());
-//
-//      // Upper bound
-//      double ub;
-//      auto ub_traj = insat_actions_ptrs_[0]->optimize(pfs);
-//      if (!ub_traj.isValid()) {
-//        count_infeasible++;
-//        ub = DINF;
-//      } else {
-//        ub = insat_actions_ptrs_[0]->getCost(ub_traj);
-//      }
-//      ub_cost_[adj.first] = std::min(global_ub, ub);
-//      if (ub_cost_[adj.first] < global_ub) {
-//        std::cout << "Found a better UB: " << ub_cost_[adj.first] << std::endl;
-//      }
       ub_cost_[adj.first] = global_ub;
 
       // Lower bound
@@ -182,11 +160,16 @@ namespace ps
 
       // Option 2
       auto pfg = paths_from_goal_[adj.first];
-      std::reverse(pfg.begin(), pfg.end());
       if (pfg.empty()) {
         lb_cost_[adj.first] = 0;
         continue;
       }
+      pfg.pop_back();
+      if (pfg.empty()) {
+        lb_cost_[adj.first] = 0;
+        continue;
+      }
+      std::reverse(pfg.begin(), pfg.end());
       lb_cost_[adj.first] = insat_actions_ptrs_[0]->lowerboundCost(pfg);
 
       // Option 3
@@ -323,7 +306,8 @@ namespace ps
           double h_val = successor_state_ptr->GetHValue();
           if (h_val == -1)
           {
-            h_val = computeHeuristic(successor_state_ptr);
+//            h_val = computeHeuristic(successor_state_ptr);
+            h_val = lb_cost_[static_cast<int>(successor_state_ptr->GetStateVars()[0])];
             successor_state_ptr->SetHValue(h_val);
           }
 
