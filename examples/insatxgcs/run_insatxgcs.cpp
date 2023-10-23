@@ -150,6 +150,7 @@ void constructActions(vector<shared_ptr<Action>>& action_ptrs,
                       ParamsType& planner_params,
                       ParamsType& action_params,
                       INSATxGCSAction::OptVecPtrType& opt,
+                      INSATxGCSAction::OptType& lb_opt,
                       int num_threads)
 {
 //  action_params["length"] = 100;
@@ -160,7 +161,7 @@ void constructActions(vector<shared_ptr<Action>>& action_ptrs,
   {
     auto insatxgcs_action = std::make_shared<INSATxGCSAction>(std::to_string(i),
                                                               action_params,
-                                                              opt, 1);
+                                                              opt, lb_opt, 1);
     action_ptrs.emplace_back(insatxgcs_action);
   }
 }
@@ -292,8 +293,8 @@ int main(int argc, char* argv[])
   // Define planner parameters
   ParamsType planner_params;
   planner_params["num_threads"] = num_threads;
-  planner_params["heuristic_weight"] = 1;
-  planner_params["timeout"] = 7200;
+  planner_params["heuristic_weight"] = 6;
+  planner_params["timeout"] = 100;
   planner_params["num_positions"] = num_positions;
   planner_params["order"] = order;
   planner_params["h_min"] = h_min;
@@ -389,6 +390,14 @@ int main(int argc, char* argv[])
     VertexId start_vid = opt.AddStart(start_vec);
     VertexId goal_vid = opt.AddGoal(goal_vec);
     opt.FormulateAndSetCostsAndConstraints();
+    /// Set up lower bound optimizer
+    auto lb_opt = GCSOpt(regions, *edges_bw_regions,
+                         (order==1)?order:order-1, h_min, h_max, 1, 0,
+                         vel_lb, vel_ub, 0);
+    // Add start and goals to optimizer
+    VertexId lb_start_vid = lb_opt.AddStart(start_vec);
+    VertexId lb_goal_vid = lb_opt.AddGoal(goal_vec);
+    lb_opt.FormulateAndSetCostsAndConstraints();
 
     StateVarsType start;
     start.push_back(start_vid.get_value());
@@ -417,7 +426,7 @@ int main(int argc, char* argv[])
     action_params["length"] = graph_degree+1;
     std::vector<shared_ptr<Action>> action_ptrs;
     constructActions(action_ptrs, planner_params, action_params,
-                     opt_vec_ptr, num_threads);
+                     opt_vec_ptr, lb_opt, num_threads);
 
     std::vector<std::shared_ptr<INSATxGCSAction>> ixg_action_ptrs;
     for (auto& a : action_ptrs)
@@ -480,6 +489,8 @@ int main(int argc, char* argv[])
          << " | Length: " << planner_stats.path_length_
          << " | State expansions: " << planner_stats.num_state_expansions_
          << " | State expansions rate: " << planner_stats.num_state_expansions_/planner_stats.total_time_
+         << " | Num eval edges: " << planner_stats.num_evaluated_edges_
+         << " | Num pruned edges: " << planner_stats.num_pruned_edges_
          << " | Lock time: " <<  planner_stats.lock_time_
          << " | Expand time: " << planner_stats.cumulative_expansions_time_
          << " | Threads: " << planner_stats.num_threads_spawned_ << "/" << planner_params["num_threads"] << endl;
