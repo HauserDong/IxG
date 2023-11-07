@@ -37,7 +37,8 @@ void State::Print(string str)
     	cout << v << ", "; 
     cout << "] | g: " << GetGValue() 
     << " | h: " << GetHValue() 
-    << " | f: "<< GetFValue() 
+    << " | g+h: "<< GetGValue()+GetHValue()
+    << " | f: "<< GetFValue()
     << " | is_closed: " << IsVisited()
     << " | being_expanded_: " << IsBeingExpanded()
     << " | num_successors: " << num_successors_ 

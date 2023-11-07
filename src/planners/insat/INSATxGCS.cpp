@@ -142,6 +142,9 @@ namespace ps
     // calculate bounds
     auto init_soln_path = paths_from_start_[goal_state_id];
     init_soln_path.push_back(goal_state_id);
+    ub_path_ = init_soln_path;
+    std::cout << "init_soln_path" << std::endl;
+    printPath(init_soln_path);
     auto init_soln_traj = insat_actions_ptrs_[0]->optimize(init_soln_path);
     if (!init_soln_traj.isValid()) {
       throw std::runtime_error("Couldn't find initial solution trajectory.");
@@ -292,9 +295,16 @@ namespace ps
                 action_ptr->getCost(traj);
 
 #if OPTIMAL
-        double lb = new_g_val + lb_cost_[static_cast<int>(successor_state_ptr->GetStateVars()[0])];
-        if (0.9*lb > ub_cost_[static_cast<int>(successor_state_ptr->GetStateVars()[0])]) {
+//        double lb = new_g_val + lb_cost_[static_cast<int>(successor_state_ptr->GetStateVars()[0])];
+        double lb = state_ptr->GetGValue() + lb_cost_[static_cast<int>(successor_state_ptr->GetStateVars()[0])];
+//        if (0.9*lb > ub_cost_[static_cast<int>(successor_state_ptr->GetStateVars()[0])]) {
+        if (lb > ub_cost_[static_cast<int>(successor_state_ptr->GetStateVars()[0])]) {
           planner_stats_.num_pruned_edges_++;
+          if (std::find(ub_path_.begin(), ub_path_.end(),successor_state_ptr->GetStateVars()[0])!=ub_path_.end()) {
+            printPath(ancestors);
+            std::cout << successor_state_ptr->GetStateVars()[0] << std::endl;
+          }
+            std::cout << "pruning cuz lb is " << lb << " g: " << state_ptr->GetGValue() << " h: " << lb_cost_[static_cast<int>(successor_state_ptr->GetStateVars()[0])] << std::endl;
           return;
         }
 #endif
@@ -461,5 +471,19 @@ namespace ps
     }
 
     cleanUp();
+  }
+
+  void INSATxGCS::printPath(std::vector<int> &path) {
+    for (auto &state_id : path) {
+      std::cout << state_id << " ";
+    }
+    std::cout << std::endl;
+  }
+
+  void INSATxGCS::printPath(std::vector<InsatStatePtrType> &path) {
+    for (auto& state_ptr : path) {
+      std::cout << state_ptr->GetStateVars()[0] << " ";
+    }
+    std::cout << std::endl;
   }
 }

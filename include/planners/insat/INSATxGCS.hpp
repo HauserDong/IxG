@@ -56,9 +56,14 @@ namespace ps
 
     void exit();
 
+    /// Temporary
+    void printPath(std::vector<InsatStatePtrType> &path);
+    void printPath(std::vector<int> &path);
+
     /// Paths to every node from start and goal
     std::unordered_map<int, std::vector<int>> paths_from_start_;
     std::unordered_map<int, std::vector<int>> paths_from_goal_;
+    std::vector<int> ub_path_;
 
     /// Map that maps state IDs to lower-bound and upper-bound costs from start to goal via them.
     std::unordered_map<int, double> lb_cost_;

@@ -70,3 +70,20 @@ target_link_libraries(bfs_test
         ${drake_LIBRARIES}
         pthread)
 
+add_executable(trigcs_monotonicity
+        examples/insatxgcs/trigcs_monotonicity.cpp
+        src/common/insatxgcs/utils.cpp
+        src/planners/insat/opt/GCSOpt.cpp)
+
+target_link_libraries(trigcs_monotonicity
+        ${drake_LIBRARIES}
+        pthread)
+
+add_executable(gcsopt_monotonicity
+        examples/insatxgcs/gcsopt_monotonicity.cpp
+        src/common/insatxgcs/utils.cpp
+        src/planners/insat/opt/GCSOpt.cpp)
+
+target_link_libraries(gcsopt_monotonicity
+        ${drake_LIBRARIES}
+        pthread)

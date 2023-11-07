@@ -589,6 +589,14 @@ int main(int argc, char* argv[])
         exec_duration = plan_vec.size()*planner_params["sampling_dt"];
       }
 
+      auto plan = planner_ptr->GetPlan();
+      for (auto& p : plan)
+      {
+        std::cout << p.state_[0] << " ";
+      }
+      std::cout << std::endl;
+
+
       for (const auto& it : planner_stats.num_incoming_edges_map_) {
         incom_edge_file << it.first << " " << it.second << std::endl;
       }
