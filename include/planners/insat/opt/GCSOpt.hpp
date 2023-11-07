@@ -174,8 +174,9 @@ namespace ps {
 
     /// Costs
     std::shared_ptr<drake::solvers::Cost> time_cost_;
-    std::vector<std::pair<std::shared_ptr<drake::solvers::Cost>, VectorXb>>
-            path_length_cost_;
+//    std::vector<std::pair<std::shared_ptr<drake::solvers::Cost>, VectorXb>>
+//        path_length_cost_;
+    std::vector<std::shared_ptr<drake::solvers::Cost>> path_length_cost_;
 
     /// Constraints
     std::pair<std::shared_ptr<drake::solvers::Constraint>, VectorXb> path_continuity_constraint_;
