@@ -122,6 +122,9 @@ namespace ps {
 
     void formulateStartPointConstraint();
 
+    void RewriteForConvexSolver();
+    void RewriteForConvexSolver(drake::solvers::MathematicalProgram* prog);
+
   private:
 
     void setupVars();
@@ -193,19 +196,17 @@ namespace ps {
     /// Dict for vertex id to vertex
     std::unordered_map<int64_t, drake::geometry::optimization::GraphOfConvexSets::Vertex*> vertex_id_to_vertex_;
     /// Dict for vertex id to cost binding
-//    std::unordered_map<VertexId, std::vector<CostBinding>> vertex_id_to_cost_binding_;
     std::unordered_map<int64_t, std::vector<CostBinding>> vertex_id_to_cost_binding_;
     /// Dict for vertex id to constraint binding
-//    std::unordered_map<VertexId, std::vector<ConstraintBinding>> vertex_id_to_constraint_binding_;
     std::unordered_map<int64_t, std::vector<ConstraintBinding>> vertex_id_to_constraint_binding_;
     /// Dict for edge id to edge
     std::unordered_map<int64_t, drake::geometry::optimization::GraphOfConvexSets::Edge*> edge_id_to_edge_;
     /// Dict for edge id to cost binding
-//    std::unordered_map<EdgeId, std::vector<CostBinding>> edge_id_to_cost_binding_;
     std::unordered_map<int64_t, std::vector<CostBinding>> edge_id_to_cost_binding_;
-    /// Dict for edge id to constraint binding+-
-//    std::unordered_map<EdgeId, std::vector<ConstraintBinding>> edge_id_to_constraint_binding_;
+    /// Dict for edge id to constraint binding
     std::unordered_map<int64_t, std::vector<ConstraintBinding>> edge_id_to_constraint_binding_;
+    /// Tracking slack variables
+    std::vector<drake::VectorX<drake::symbolic::Variable>> slack_vars_;
 
     /// Flags for enabling/disabling costs and constraints
     bool enable_time_cost_;

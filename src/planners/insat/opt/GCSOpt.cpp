@@ -89,101 +89,6 @@ namespace ps {
   }
 }
 
-// TODO(russt): Move this into the public API.
-
-// TODO(russt): Return a map from the removed cost to the new slack variable
-// and constraint.
-
-/* Most convex solvers require only support linear and quadratic costs when
-operating with nonlinear constraints. This removes costs and adds variables and
-constraints as needed by the solvers. */
-void RewriteForConvexSolver(drake::solvers::MathematicalProgram* prog) {
-  // Use Mosek's requirements to test the program attributes.
-  drake::solvers::MosekSolver mosek;
-  if (mosek.AreProgramAttributesSatisfied(*prog)) {
-    return;
-  }
-
-  const double kInf = std::numeric_limits<double>::infinity();
-
-  // Loop through all unsupported costs and rewrite them into constraints.
-  std::unordered_set<drake::solvers::Binding<drake::solvers::Cost>> to_remove;
-
-  for (const auto& binding : prog->l2norm_costs()) {
-    const int m = binding.evaluator()->A().rows();
-    const int n = binding.evaluator()->A().cols();
-    auto slack = prog->NewContinuousVariables<1>("slack");
-    prog->AddLinearCost(drake::Vector1d::Ones(), slack);
-    // |Ax+b|² ≤ slack, written as a Lorentz cone with z = [slack; Ax+b].
-    Eigen::MatrixXd A = Eigen::MatrixXd::Zero(m + 1, n + 1);
-    A(0, 0) = 1;
-    A.bottomRightCorner(m, n) = binding.evaluator()->A();
-    Eigen::VectorXd b(m + 1);
-    b << 0, binding.evaluator()->b();
-    prog->AddLorentzConeConstraint(A, b, {slack, binding.variables()});
-    to_remove.insert(binding);
-  }
-
-  for (const auto& binding : prog->generic_costs()) {
-    const drake::solvers::Cost* cost = binding.evaluator().get();
-    if (const auto* l1c = dynamic_cast<const drake::solvers::L1NormCost*>(cost)) {
-      const int m = l1c->A().rows();
-      const int n = l1c->A().cols();
-      auto slack = prog->NewContinuousVariables(m, "slack");
-      prog->AddLinearCost(Eigen::VectorXd::Ones(m), slack);
-      // Ax + b ≤ slack, written as [A,-I][x;slack] ≤ -b.
-      Eigen::MatrixXd A = Eigen::MatrixXd::Zero(m, m + n);
-      A << l1c->A(), -Eigen::MatrixXd::Identity(m, m);
-      prog->AddLinearConstraint(A, Eigen::VectorXd::Constant(m, -kInf), -l1c->b(),
-                                {binding.variables(), slack});
-      // -(Ax + b) ≤ slack, written as [A,I][x;slack] ≥ -b.
-      A.rightCols(m) = Eigen::MatrixXd::Identity(m, m);
-      prog->AddLinearConstraint(A, -l1c->b(), Eigen::VectorXd::Constant(m, kInf),
-                                {binding.variables(), slack});
-      to_remove.insert(binding);
-    } else if (const auto* linfc = dynamic_cast<const drake::solvers::LInfNormCost*>(cost)) {
-      const int m = linfc->A().rows();
-      const int n = linfc->A().cols();
-      auto slack = prog->NewContinuousVariables<1>("slack");
-      prog->AddLinearCost(drake::Vector1d::Ones(), slack);
-      // ∀i, aᵢᵀx + bᵢ ≤ slack, written as [A,-1][x;slack] ≤ -b.
-      Eigen::MatrixXd A = Eigen::MatrixXd::Zero(m, n + 1);
-      A << linfc->A(), Eigen::VectorXd::Constant(m, -1);
-      prog->AddLinearConstraint(A, Eigen::VectorXd::Constant(m, -kInf), -linfc->b(),
-                                {binding.variables(), slack});
-      // ∀i, -(aᵢᵀx + bᵢ) ≤ slack, written as [A,1][x;slack] ≥ -b.
-      A.col(A.cols() - 1) = Eigen::VectorXd::Ones(m);
-      prog->AddLinearConstraint(A, -linfc->b(), Eigen::VectorXd::Constant(m, kInf),
-                                {binding.variables(), slack});
-      to_remove.insert(binding);
-    } else if (const auto* pqc =
-        dynamic_cast<const drake::solvers::PerspectiveQuadraticCost*>(cost)) {
-      const int m = pqc->A().rows();
-      const int n = pqc->A().cols();
-      auto slack = prog->NewContinuousVariables<1>("slack");
-      prog->AddLinearCost(drake::Vector1d::Ones(), slack);
-      // Written as rotated Lorentz cone with z = [slack; Ax+b].
-      Eigen::MatrixXd A = Eigen::MatrixXd::Zero(m + 1, n + 1);
-      A(0, 0) = 1;
-      A.bottomRightCorner(m, n) = pqc->A();
-      Eigen::VectorXd b(m + 1);
-      b << 0, pqc->b();
-      prog->AddRotatedLorentzConeConstraint(A, b, {slack, binding.variables()});
-      to_remove.insert(binding);
-    }
-  }
-  for (const auto& b : to_remove) {
-    prog->RemoveCost(b);
-  }
-
-  if (!mosek.AreProgramAttributesSatisfied(*prog)) {
-    throw std::runtime_error(fmt::format(
-        "SolveConvexRestriction failed to generate a convex problem: {}",
-        mosek.ExplainUnsatisfiedProgramAttributes(*prog)));
-  }
-}
-
-
 ps::GCSOpt::GCSOpt(const std::vector<HPolyhedron> &regions,
                    const std::vector<std::pair<int, int>> &edges_between_regions,
                    int order, double h_min, double h_max,
@@ -451,6 +356,9 @@ ps::GCSOpt::Solve(std::vector<VertexId>& path_vids,
   for (const auto& vid : path_vids) {
     auto& dec_vars = vertex_id_to_vertex_[vid.get_value()]->x();
     prog.AddDecisionVariables(dec_vars);
+    for (auto& slack : slack_vars_) {
+      prog.AddDecisionVariables(slack);
+    }
     for (const auto& cost : vertex_id_to_cost_binding_[vid.get_value()]) {
       prog.AddCost(cost);
     }
@@ -478,36 +386,36 @@ ps::GCSOpt::Solve(std::vector<VertexId>& path_vids,
 
 /// Default is using SNOPT
 ////  drake::solvers::MathematicalProgramResult result = drake::solvers::Solve(prog);
-  auto start_time = std::chrono::high_resolution_clock::now();
-  drake::solvers::MathematicalProgramResult result;
-  if (initial_guess.size() == 0) {
-    result = drake::solvers::Solve(prog);
-  } else if (initial_guess.size() < prog.num_vars()) {
-    Eigen::VectorXd full_init_guess(prog.num_vars());
-    full_init_guess.setZero();
-    full_init_guess.head(initial_guess.size()) = initial_guess;
-    result = drake::solvers::Solve(prog, full_init_guess);
-  } else {
-    result = drake::solvers::Solve(prog, initial_guess);
-  }
-  auto end_time = std::chrono::high_resolution_clock::now();
-
-/// Use MOSEK
-//  RewriteForConvexSolver(&prog);
 //  auto start_time = std::chrono::high_resolution_clock::now();
-//  auto mosek_solver = drake::solvers::MosekSolver();
 //  drake::solvers::MathematicalProgramResult result;
 //  if (initial_guess.size() == 0) {
-//    result = mosek_solver.Solve(prog);
+//    result = drake::solvers::Solve(prog);
 //  } else if (initial_guess.size() < prog.num_vars()) {
 //    Eigen::VectorXd full_init_guess(prog.num_vars());
 //    full_init_guess.setZero();
 //    full_init_guess.head(initial_guess.size()) = initial_guess;
-//    result = mosek_solver.Solve(prog, full_init_guess);
+//    result = drake::solvers::Solve(prog, full_init_guess);
 //  } else {
-//    result = mosek_solver.Solve(prog, initial_guess);
+//    result = drake::solvers::Solve(prog, initial_guess);
 //  }
 //  auto end_time = std::chrono::high_resolution_clock::now();
+
+/// Use MOSEK
+//  RewriteForConvexSolver(&prog);
+  auto start_time = std::chrono::high_resolution_clock::now();
+  auto mosek_solver = drake::solvers::MosekSolver();
+  drake::solvers::MathematicalProgramResult result;
+  if (initial_guess.size() == 0) {
+    result = mosek_solver.Solve(prog);
+  } else if (initial_guess.size() < prog.num_vars()) {
+    Eigen::VectorXd full_init_guess(prog.num_vars());
+    full_init_guess.setZero();
+    full_init_guess.head(initial_guess.size()) = initial_guess;
+    result = mosek_solver.Solve(prog, full_init_guess);
+  } else {
+    result = mosek_solver.Solve(prog, initial_guess);
+  }
+  auto end_time = std::chrono::high_resolution_clock::now();
 
   if (verbose_)  std::cout << "Solving alone took " << std::chrono::duration_cast<std::chrono::nanoseconds>(end_time - start_time).count()/1e9 << "s" << std::endl;
 
@@ -884,8 +792,191 @@ void ps::GCSOpt::setupCostsAndConstraints() {
   for (const auto* e : edges_) {
     addConstraints(e);
   }
+  RewriteForConvexSolver();
 }
 
+/* Most convex solvers require only support linear and quadratic costs when
+operating with nonlinear constraints. This removes costs and adds variables and
+constraints as needed by the solvers. */
+void ps::GCSOpt::RewriteForConvexSolver() {
+  drake::solvers::MathematicalProgram prog;
+
+  const double kInf = std::numeric_limits<double>::infinity();
+  for (auto& vtx_costs : vertex_id_to_cost_binding_) {
+    std::vector<CostBinding> new_costs;
+    for (auto& cst_bind : vtx_costs.second) {
+      const drake::solvers::Cost* cst = cst_bind.evaluator().get();
+
+      if (const auto* l2c = dynamic_cast<const drake::solvers::L2NormCost*>(cst)) {
+        const int m = l2c->A().rows();
+        const int n = l2c->A().cols();
+        auto slack = drake::symbolic::MakeVectorContinuousVariable(1, "slack");
+        slack_vars_.emplace_back(slack);
+        auto new_cost = std::make_shared<drake::solvers::LinearCost>(drake::Vector1d::Ones());
+        auto new_cost_binding =
+            drake::solvers::Binding<drake::solvers::Cost>(new_cost, slack);
+        new_costs.emplace_back(new_cost_binding);
+        // |Ax+b|² ≤ slack, written as a Lorentz cone with z = [slack; Ax+b].
+        Eigen::MatrixXd A = Eigen::MatrixXd::Zero(m + 1, n + 1);
+        A(0, 0) = 1;
+        A.bottomRightCorner(m, n) = l2c->A();
+        Eigen::VectorXd b(m + 1);
+        b << 0, l2c->b();
+        auto new_con = std::make_shared<drake::solvers::LorentzConeConstraint>(A, b);
+        auto new_con_binding = drake::solvers::Binding<drake::solvers::Constraint>(new_con, {slack, cst_bind.variables()});
+        vertex_id_to_constraint_binding_[vtx_costs.first].emplace_back(new_con_binding);
+      } else if (const auto* l1c = dynamic_cast<const drake::solvers::L1NormCost*>(cst)) {
+        const int m = l1c->A().rows();
+        const int n = l1c->A().cols();
+        auto slack = drake::symbolic::MakeVectorContinuousVariable(m, "slack");
+        slack_vars_.emplace_back(slack);
+        auto new_cost = std::make_shared<drake::solvers::LinearCost>(Eigen::VectorXd::Ones(m));
+        auto new_cost_binding =
+            drake::solvers::Binding<drake::solvers::Cost>(new_cost, slack);
+        new_costs.emplace_back(new_cost_binding);
+        // Ax + b ≤ slack, written as [A,-I][x;slack] ≤ -b.
+        Eigen::MatrixXd A = Eigen::MatrixXd::Zero(m, m + n);
+        A << l1c->A(), -Eigen::MatrixXd::Identity(m, m);
+        vertex_id_to_constraint_binding_[vtx_costs.first].emplace_back(prog.AddLinearConstraint(A, Eigen::VectorXd::Constant(m, -kInf), -l1c->b(),
+                                  {cst_bind.variables(), slack}));
+        // -(Ax + b) ≤ slack, written as [A,I][x;slack] ≥ -b.
+        A.rightCols(m) = Eigen::MatrixXd::Identity(m, m);
+        auto new_con = std::make_shared<drake::solvers::LinearConstraint>(A, -l1c->b(), Eigen::VectorXd::Constant(m, kInf));
+        auto new_con_binding = drake::solvers::Binding<drake::solvers::Constraint>(new_con, {cst_bind.variables(), slack});
+        vertex_id_to_constraint_binding_[vtx_costs.first].emplace_back(new_con_binding);
+      } else if (const auto* linfc = dynamic_cast<const drake::solvers::LInfNormCost*>(cst)) {
+        const int m = linfc->A().rows();
+        const int n = linfc->A().cols();
+        auto slack = drake::symbolic::MakeVectorContinuousVariable(1, "slack");
+        slack_vars_.emplace_back(slack);
+        auto new_cost = std::make_shared<drake::solvers::LinearCost>(drake::Vector1d::Ones());
+        auto new_cost_binding =
+            drake::solvers::Binding<drake::solvers::Cost>(new_cost, slack);
+        new_costs.emplace_back(new_cost_binding);
+        // ∀i, aᵢᵀx + bᵢ ≤ slack, written as [A,-1][x;slack] ≤ -b.
+        Eigen::MatrixXd A = Eigen::MatrixXd::Zero(m, n + 1);
+        A << linfc->A(), Eigen::VectorXd::Constant(m, -1);
+        vertex_id_to_constraint_binding_[vtx_costs.first].emplace_back(prog.AddLinearConstraint(A, Eigen::VectorXd::Constant(m, -kInf), -linfc->b(),
+                                  {cst_bind.variables(), slack}));
+        // ∀i, -(aᵢᵀx + bᵢ) ≤ slack, written as [A,1][x;slack] ≥ -b.
+        A.col(A.cols() - 1) = Eigen::VectorXd::Ones(m);
+        auto new_con = std::make_shared<drake::solvers::LinearConstraint>(A, -linfc->b(), Eigen::VectorXd::Constant(m, kInf));
+        auto new_con_binding = drake::solvers::Binding<drake::solvers::Constraint>(new_con, {cst_bind.variables(), slack});
+        vertex_id_to_constraint_binding_[vtx_costs.first].emplace_back(new_con_binding);
+      } else if (const auto* pqc = dynamic_cast<const drake::solvers::PerspectiveQuadraticCost*>(cst)) {
+        const int m = pqc->A().rows();
+        const int n = pqc->A().cols();
+        auto slack = drake::symbolic::MakeVectorContinuousVariable(1, "slack");
+        slack_vars_.emplace_back(slack);
+        auto new_cost = std::make_shared<drake::solvers::LinearCost>(drake::Vector1d::Ones());
+        auto new_cost_binding =
+            drake::solvers::Binding<drake::solvers::Cost>(new_cost, slack);
+        new_costs.emplace_back(new_cost_binding);
+        // Written as rotated Lorentz cone with z = [slack; Ax+b].
+        Eigen::MatrixXd A = Eigen::MatrixXd::Zero(m + 1, n + 1);
+        A(0, 0) = 1;
+        A.bottomRightCorner(m, n) = pqc->A();
+        Eigen::VectorXd b(m + 1);
+        b << 0, pqc->b();
+        auto new_con = std::make_shared<drake::solvers::RotatedLorentzConeConstraint>(A, b);
+        auto new_con_binding = drake::solvers::Binding<drake::solvers::Constraint>(new_con, {slack, cst_bind.variables()});
+        vertex_id_to_constraint_binding_[vtx_costs.first].emplace_back(new_con_binding);
+      } else {
+        new_costs.emplace_back(cst_bind);
+      }
+    }
+    vtx_costs.second = new_costs;
+  }
+}
+
+/* Most convex solvers require only support linear and quadratic costs when
+operating with nonlinear constraints. This removes costs and adds variables and
+constraints as needed by the solvers. */
+void ps::GCSOpt::RewriteForConvexSolver(drake::solvers::MathematicalProgram* prog) {
+  // Use Mosek's requirements to test the program attributes.
+  drake::solvers::MosekSolver mosek;
+  if (mosek.AreProgramAttributesSatisfied(*prog)) {
+    return;
+  }
+
+  const double kInf = std::numeric_limits<double>::infinity();
+
+  // Loop through all unsupported costs and rewrite them into constraints.
+  std::unordered_set<drake::solvers::Binding<drake::solvers::Cost>> to_remove;
+
+  for (const auto& binding : prog->l2norm_costs()) {
+    const int m = binding.evaluator()->A().rows();
+    const int n = binding.evaluator()->A().cols();
+    auto slack = prog->NewContinuousVariables<1>("slack");
+    prog->AddLinearCost(drake::Vector1d::Ones(), slack);
+    // |Ax+b|² ≤ slack, written as a Lorentz cone with z = [slack; Ax+b].
+    Eigen::MatrixXd A = Eigen::MatrixXd::Zero(m + 1, n + 1);
+    A(0, 0) = 1;
+    A.bottomRightCorner(m, n) = binding.evaluator()->A();
+    Eigen::VectorXd b(m + 1);
+    b << 0, binding.evaluator()->b();
+    prog->AddLorentzConeConstraint(A, b, {slack, binding.variables()});
+    to_remove.insert(binding);
+  }
+
+  for (const auto& binding : prog->generic_costs()) {
+    const drake::solvers::Cost* cost = binding.evaluator().get();
+    if (const auto* l1c = dynamic_cast<const drake::solvers::L1NormCost*>(cost)) {
+      const int m = l1c->A().rows();
+      const int n = l1c->A().cols();
+      auto slack = prog->NewContinuousVariables(m, "slack");
+      prog->AddLinearCost(Eigen::VectorXd::Ones(m), slack);
+      // Ax + b ≤ slack, written as [A,-I][x;slack] ≤ -b.
+      Eigen::MatrixXd A = Eigen::MatrixXd::Zero(m, m + n);
+      A << l1c->A(), -Eigen::MatrixXd::Identity(m, m);
+      prog->AddLinearConstraint(A, Eigen::VectorXd::Constant(m, -kInf), -l1c->b(),
+                                {binding.variables(), slack});
+      // -(Ax + b) ≤ slack, written as [A,I][x;slack] ≥ -b.
+      A.rightCols(m) = Eigen::MatrixXd::Identity(m, m);
+      prog->AddLinearConstraint(A, -l1c->b(), Eigen::VectorXd::Constant(m, kInf),
+                                {binding.variables(), slack});
+      to_remove.insert(binding);
+    } else if (const auto* linfc = dynamic_cast<const drake::solvers::LInfNormCost*>(cost)) {
+      const int m = linfc->A().rows();
+      const int n = linfc->A().cols();
+      auto slack = prog->NewContinuousVariables<1>("slack");
+      prog->AddLinearCost(drake::Vector1d::Ones(), slack);
+      // ∀i, aᵢᵀx + bᵢ ≤ slack, written as [A,-1][x;slack] ≤ -b.
+      Eigen::MatrixXd A = Eigen::MatrixXd::Zero(m, n + 1);
+      A << linfc->A(), Eigen::VectorXd::Constant(m, -1);
+      prog->AddLinearConstraint(A, Eigen::VectorXd::Constant(m, -kInf), -linfc->b(),
+                                {binding.variables(), slack});
+      // ∀i, -(aᵢᵀx + bᵢ) ≤ slack, written as [A,1][x;slack] ≥ -b.
+      A.col(A.cols() - 1) = Eigen::VectorXd::Ones(m);
+      prog->AddLinearConstraint(A, -linfc->b(), Eigen::VectorXd::Constant(m, kInf),
+                                {binding.variables(), slack});
+      to_remove.insert(binding);
+    } else if (const auto* pqc =
+        dynamic_cast<const drake::solvers::PerspectiveQuadraticCost*>(cost)) {
+      const int m = pqc->A().rows();
+      const int n = pqc->A().cols();
+      auto slack = prog->NewContinuousVariables<1>("slack");
+      prog->AddLinearCost(drake::Vector1d::Ones(), slack);
+      // Written as rotated Lorentz cone with z = [slack; Ax+b].
+      Eigen::MatrixXd A = Eigen::MatrixXd::Zero(m + 1, n + 1);
+      A(0, 0) = 1;
+      A.bottomRightCorner(m, n) = pqc->A();
+      Eigen::VectorXd b(m + 1);
+      b << 0, pqc->b();
+      prog->AddRotatedLorentzConeConstraint(A, b, {slack, binding.variables()});
+      to_remove.insert(binding);
+    }
+  }
+  for (const auto& b : to_remove) {
+    prog->RemoveCost(b);
+  }
+
+  if (!mosek.AreProgramAttributesSatisfied(*prog)) {
+    throw std::runtime_error(fmt::format(
+        "SolveConvexRestriction failed to generate a convex problem: {}",
+        mosek.ExplainUnsatisfiedProgramAttributes(*prog)));
+  }
+}
 
 
 
