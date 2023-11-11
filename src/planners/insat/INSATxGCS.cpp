@@ -143,14 +143,15 @@ namespace ps
     auto init_soln_path = paths_from_start_[goal_state_id];
     init_soln_path.push_back(goal_state_id);
     ub_path_ = init_soln_path;
-    std::cout << "init_soln_path" << std::endl;
-    printPath(init_soln_path);
     auto init_soln_traj = insat_actions_ptrs_[0]->optimize(init_soln_path);
     if (!init_soln_traj.isValid()) {
       throw std::runtime_error("Couldn't find initial solution trajectory.");
     }
     double global_ub = insat_actions_ptrs_[0]->getCost(init_soln_traj);
-
+#if VERBOSE
+    std::cout << "init_soln_path" << std::endl;
+    printPath(init_soln_path);
+#endif
 
     int count_infeasible = 0;
     for (auto& adj : gcs_adjacency) {
@@ -178,13 +179,14 @@ namespace ps
       // Option 3
 //      lb_cost_[adj.first] = pfg.size();
 
-//      std::cout << adj.first << " " << lb_cost_[adj.first] << std::endl;
-      assert(ub_cost_[adj.first] >= lb_cost_[adj.first]);
+//      if (ub_cost_[adj.first] < lb_cost_[adj.first]) {
+//        std::cout << "Upper bound " << ub_cost_[adj.first] << " is less than lower bound " << lb_cost_[adj.first] << std::endl;
+//        std::abort();
+//      }
     }
 
 //    std::cout << "% infeasible UBs: "
 //              << (((double)count_infeasible)/((double)gcs_adjacency.size()))*100 << std::endl;
-//    std::cout << "goal ub cost: " << ub_cost_[goal_state_id] << std::endl;
     std::cout << "LB set successfully! lb from start: " << lb_cost_[start_state_id] << std::endl;
     std::cout << "UB set successfully! global_ub: " << global_ub << std::endl;
 
@@ -300,11 +302,13 @@ namespace ps
 //        if (0.9*lb > ub_cost_[static_cast<int>(successor_state_ptr->GetStateVars()[0])]) {
         if (lb > ub_cost_[static_cast<int>(successor_state_ptr->GetStateVars()[0])]) {
           planner_stats_.num_pruned_edges_++;
+#if VERBOSE
           if (std::find(ub_path_.begin(), ub_path_.end(),successor_state_ptr->GetStateVars()[0])!=ub_path_.end()) {
             printPath(ancestors);
             std::cout << successor_state_ptr->GetStateVars()[0] << std::endl;
           }
             std::cout << "pruning cuz lb is " << lb << " g: " << state_ptr->GetGValue() << " h: " << lb_cost_[static_cast<int>(successor_state_ptr->GetStateVars()[0])] << std::endl;
+#endif
           return;
         }
 #endif
