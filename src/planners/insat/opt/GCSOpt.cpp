@@ -121,17 +121,6 @@ ps::GCSOpt::GCSOpt(const std::vector<HPolyhedron> &regions,
     enable_time_cost_ = true;
   }
   if (path_length_weight != 0) {
-    /// QuadraticCost
-//    path_length_weight = 0;
-//    path_length_weight = 1/.5;
-//    auto path_length_weight_matrix = path_length_weight * Eigen::MatrixXd::Identity(num_positions_, num_positions_);
-//    path_length_weight_ = Eigen::MatrixXd::Ones(2*num_positions_, 2*num_positions_);
-//    path_length_weight_.block(0, 0, num_positions_, num_positions_) = path_length_weight_matrix;
-//    path_length_weight_.block(0, num_positions_, num_positions_, num_positions_) = -path_length_weight_matrix;
-//    path_length_weight_.block(num_positions_, 0, num_positions_, num_positions_) = -path_length_weight_matrix;
-//    path_length_weight_.block(num_positions_, num_positions_, num_positions_, num_positions_) = path_length_weight_matrix;
-
-    /// L2Norm
     auto path_length_weight_matrix = path_length_weight * Eigen::MatrixXd::Identity(num_positions_, num_positions_);
     path_length_weight_.resize(num_positions_, 2*num_positions_);
     path_length_weight_.block(0, 0, num_positions_, num_positions_) = path_length_weight_matrix;
@@ -278,20 +267,6 @@ ps::VertexId ps::GCSOpt::AddGoal(Eigen::VectorXd &goal) {
 }
 
 double ps::GCSOpt::LowerboundSolve(const std::vector<int>& path_ids) {
-//  double dist = 0;
-//  Eigen::MatrixXd ctrs(1, num_positions_);
-//  for (int i=0; i < path_ids.size(); ++i) {
-//    if (vertex_id_to_regions_.find(path_ids[i]) != vertex_id_to_regions_.end()) {
-//      auto& cset = vertex_id_to_regions_[path_ids[i]];
-//      ctrs.row(i) = cset.ChebyshevCenter();
-//      ctrs.conservativeResize(ctrs.rows()+1, ctrs.cols());
-//    }
-//  }
-//  for (int i=0; i<ctrs.rows()-1; ++i) {
-//    dist += (ctrs.row(i+1) - ctrs.row(i)).norm();
-//  }
-//  return dist;
-
   std::vector<VertexId> path_vids;
   for (const auto& id : path_ids) {
     path_vids.push_back(vertex_id_to_vertex_[id]->id());
@@ -548,55 +523,6 @@ void ps::GCSOpt::formulateTimeCost() {
           std::make_shared<drake::solvers::LinearCost>(time_weight_ * Eigen::VectorXd::Ones(1), 0.0);
 }
 
-//void ps::GCSOpt::formulatePathLengthCost() {
-//  const Eigen::MatrixX<drake::symbolic::Expression> u_rdot_control =
-//          drake::dynamic_pointer_cast_or_throw<drake::trajectories::BezierCurve<drake::symbolic::Expression>>(
-//                  u_r_trajectory_.MakeDerivative())
-//                  ->control_points();
-//
-//  if (verbose_) {
-//
-//    std::cout << "u_r_trajectory_.control_points() \n  " << u_r_trajectory_.control_points() << std::endl;
-//    std::cout << "u_r_trajectory_.MakeDerivative()->control_points() \n  " << drake::dynamic_pointer_cast_or_throw<drake::trajectories::BezierCurve<drake::symbolic::Expression>>(
-//            u_r_trajectory_.MakeDerivative())
-//            ->control_points() << std::endl;
-//    std::cout << "u_rdot_control \n  " << u_rdot_control << std::endl;
-//  }
-//
-//  for (int i = 0; i < u_rdot_control.cols(); ++i) {
-//    Eigen::MatrixXd M(num_positions_, u_vars_.size());
-//    DecomposeLinearExpressions(u_rdot_control.col(i) / order_, u_vars_, &M);
-//    // Condense M to only keep non-zero columns.
-//    const auto& [condensed_matrices, nonzero_cols_mask] =
-//            CondenseToNonzeroColumns({M});
-//    Eigen::MatrixXd M_dense = condensed_matrices[0];
-//    Eigen::MatrixXd M_double_dense(2*M_dense.rows(), M_dense.cols());
-//    M_double_dense.topRows(M_dense.rows()) = -M_dense;
-//    M_double_dense.bottomRows(M_dense.rows()) = M_dense;
-//
-//    if (verbose_) {
-//      std::cout << "u_vars \n  " << u_vars_ << std::endl;
-//      std::cout << "u_rdot_control.col(i) / order_ \n  " << u_rdot_control.col(i) / order_ << std::endl;
-//      std::cout << "M \n  " << M << std::endl;
-//      std::cout << "M  * u_vars_ \n  " << M * u_vars_ << std::endl;
-//      std::cout << "nonzero_cols_mask \n  " << nonzero_cols_mask << std::endl;
-//      std::cout << "M_dense \n  " << M_dense << std::endl;
-//      std::cout << "path_length_weight_ \n  " << path_length_weight_ << std::endl;
-//      std::cout << "path_length_weight_ * M_dense \n  " << path_length_weight_ * M_dense << std::endl;
-//      std::cout << "M_double_dense \n  " << M_double_dense << std::endl;
-//    }
-//
-////    path_length_cost_.emplace_back(std::make_shared<drake::solvers::L2NormCost>(
-////                                           path_length_weight_ * M_dense, Eigen::VectorXd::Zero(num_positions_)),
-////                                   nonzero_cols_mask);
-//
-//    path_length_cost_.emplace_back(std::make_shared<drake::solvers::QuadraticCost>(
-//                                           path_length_weight_ * M_double_dense, Eigen::VectorXd::Zero(2*num_positions_)),
-//                                   nonzero_cols_mask);
-//
-//  }
-//}
-
 void ps::GCSOpt::formulatePathLengthCost() {
   /*
     We will upper bound the trajectory length by the sum of the distances
@@ -614,8 +540,6 @@ void ps::GCSOpt::formulatePathLengthCost() {
 
   const auto path_length_cost =
       std::make_shared<drake::solvers::L2NormCost>(path_length_weight_, Eigen::VectorXd::Zero(num_positions_));
-//  const auto path_length_cost =
-//      std::make_shared<drake::solvers::QuadraticCost>(path_length_weight_, Eigen::VectorXd::Zero(2*num_positions_));
   path_length_cost_.emplace_back(path_length_cost);
 }
 
@@ -683,27 +607,6 @@ void ps::GCSOpt::formulateVelocityConstraint() {
 //  }
 }
 
-//void ps::GCSOpt::formulateStartPointConstraint() {
-//  const Eigen::VectorX<drake::symbolic::Expression> start_point_error =
-//          u_r_trajectory_.control_points().col(0) - start_;
-//
-//  if (verbose_) {
-//    std::cout << "u_vars_ \n  " << u_vars_ << std::endl;
-//    std::cout << "start_point_error \n  " << start_point_error << std::endl;
-//  }
-//
-//  Eigen::MatrixXd M(num_positions_, u_vars_.size());
-//  drake::symbolic::DecomposeLinearExpressions(start_point_error, u_vars_, &M);
-//  // Condense M to only keep non-zero columns.
-//  const auto& [condensed_matrices, nonzero_cols_mask] =
-//          CondenseToNonzeroColumns({M});
-//  Eigen::MatrixXd M_dense = condensed_matrices[0];
-//
-//  start_point_constraint_ = std::make_pair(
-//          std::make_shared<drake::solvers::LinearEqualityConstraint>(
-//                  M_dense, Eigen::VectorXd::Zero(num_positions_)), nonzero_cols_mask);
-//}
-
 void ps::GCSOpt::formulateCostsAndConstraints() {
   if (enable_time_cost_) {
     formulateTimeCost();
@@ -730,13 +633,6 @@ void ps::GCSOpt::addCosts(const drake::geometry::optimization::GraphOfConvexSets
   }
 
   if (enable_path_length_cost_) {
-//    for (const auto& c : path_length_cost_) {
-//      CostBinding path_length_cost_binding =
-//              drake::solvers::Binding<drake::solvers::Cost>(
-//                      c.first, FilterVariables(v->x(), c.second));
-//
-//      vertex_id_to_cost_binding_[v->id().get_value()].emplace_back(path_length_cost_binding);
-//    }
     for (const auto& c : path_length_cost_) {
       auto control_points = Eigen::Map<const Eigen::MatrixX<drake::symbolic::Variable>>(
           v->x().data(), num_positions_, order_ + 1);
@@ -745,7 +641,6 @@ void ps::GCSOpt::addCosts(const drake::geometry::optimization::GraphOfConvexSets
         CostBinding path_length_cost_binding =
             drake::solvers::Binding<drake::solvers::Cost>(
         c, {control_points.col(i + 1), control_points.col(i)});
-//        std::cout << "path_length_cost_binding: \n" << path_length_cost_binding << std::endl;
         vertex_id_to_cost_binding_[v->id().get_value()].emplace_back(path_length_cost_binding);
       }
     }

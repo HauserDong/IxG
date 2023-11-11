@@ -94,13 +94,6 @@ namespace ps {
             drake::solvers::MathematicalProgramResult> Solve(std::vector<VertexId>& path_vids,
                                                              Eigen::VectorXd& initial_guess);
 
-//    GCSOptResult Solve(std::vector<VertexId>& new_path_vids,
-//                       std::vector<EdgeId>& new_path_eids,
-//                       Eigen::VectorXd& initial_guess,
-//                       drake::VectorX<drake::symbolic::Variable>& old_dec_vars,
-//                       std::vector< drake::solvers::Binding< drake::solvers::Cost > >& old_costs,
-//                       std::vector< drake::solvers::Binding< drake::solvers::Constraint > >& old_constraints);
-
     const std::shared_ptr<drake::geometry::optimization::GraphOfConvexSets> GetGCS() const {
       return gcs_;
     }
@@ -120,22 +113,20 @@ namespace ps {
       return edges_;
     }
 
-    void formulateStartPointConstraint();
-
     void RewriteForConvexSolver();
     void RewriteForConvexSolver(drake::solvers::MathematicalProgram* prog);
 
-  private:
+  protected:
 
-    void setupVars();
+    virtual void setupVars();
     /// Preprocess regions to add the time scaling set and create vertices
-    void preprocess(const drake::geometry::optimization::ConvexSets& regions,
-                    const std::vector<std::pair<int, int>>& edges_between_regions);
+    virtual void preprocess(const drake::geometry::optimization::ConvexSets& regions,
+                            const std::vector<std::pair<int, int>>& edges_between_regions);
     void addCosts(const GCSVertex* v);
     void addConstraints(const GCSVertex* v);
     void addConstraints(const GCSEdge* e);
     void setupCostsAndConstraints();
-    void formulateTimeCost();
+    virtual void formulateTimeCost();
     void formulatePathLengthCost();
     void formulatePathContinuityConstraint();
     void formulateVelocityConstraint();
@@ -210,10 +201,11 @@ namespace ps {
 
     /// Flags for enabling/disabling costs and constraints
     bool enable_time_cost_;
-    double time_weight_;
     bool enable_path_length_cost_;
-    Eigen::MatrixXd path_length_weight_;
     bool enable_path_velocity_constraint_;
+    /// weights
+    double time_weight_;
+    Eigen::MatrixXd path_length_weight_;
 
   };
 }
