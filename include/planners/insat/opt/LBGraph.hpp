@@ -38,6 +38,9 @@
 #include <planners/insat/opt/GCSOpt.hpp>
 #include <planners/insat/opt/GCSSmoothOpt.hpp>
 
+#include <sstream>
+#include <fstream>
+
 namespace ps {
 
   struct hash_pair {
@@ -58,6 +61,13 @@ namespace ps {
 
   class LBGraph {
   public:
+
+    struct Data
+    {
+      std::unordered_map<int, std::vector<int>> old_id_to_new_id_;
+      std::unordered_map<int, std::vector<int>> lbg_adj_list_;
+      std::unordered_map<int, std::vector<double>> lbg_adj_cost_list_;
+    };
 
     LBGraph(const std::vector<HPolyhedron>& regions,
             const std::vector<std::pair<int, int>>& edges_between_regions,
@@ -96,42 +106,184 @@ namespace ps {
         }
       }
 
+      int new_id = 0;
       /// Solve the LB problem for each LB edge using the triplets
+      /// Save the edge if it is new or if the cost is lower
+      /// Update the map from old id to new id
       for (auto& edge : lbg_opt_edges_) {
         double cost = gcs_->LowerboundSolve(edge);
-        std::pair<int, int> nz_lb_edge = {edge[0], edge[2]};
+        int in_id = new_id++;
+        int out_id = new_id++;
+        std::pair<int, int> nz_lb_edge = {in_id, out_id};
         /// Save the edges with costs
         if (lb_edge_to_costs_.find(nz_lb_edge) != lb_edge_to_costs_.end()) {
           if (cost < lb_edge_to_costs_[nz_lb_edge]) {
             lb_edge_to_costs_[nz_lb_edge] = cost;
+            data_.old_id_to_new_id_[edge[0]].push_back(in_id);
+            data_.old_id_to_new_id_[edge[2]].push_back(out_id);
           }
         } else {
           lb_edge_to_costs_[nz_lb_edge] = cost;
+          data_.old_id_to_new_id_[edge[0]].push_back(in_id);
+          data_.old_id_to_new_id_[edge[2]].push_back(out_id);
         }
       }
       /// Add the zero cost edges
       for (auto& edge : edges_between_regions) {
-        std::pair<int, int> zero_lb_edge = {edge.first, edge.second};
-        if (lb_edge_to_costs_.find(zero_lb_edge) != lb_edge_to_costs_.end()) {
-          throw std::runtime_error("Zero LB found!!");
+        auto in_new_id = data_.old_id_to_new_id_[edge.first];
+        auto out_new_id = data_.old_id_to_new_id_[edge.second];
+        for (auto& in : in_new_id) {
+          for (auto& out : out_new_id) {
+            std::pair<int, int> zero_lb_edge = {in, out};
+            if (lb_edge_to_costs_.find(zero_lb_edge) != lb_edge_to_costs_.end()) {
+              throw std::runtime_error("Zero LB found!!");
+            }
+            lb_edge_to_costs_[zero_lb_edge] = 0.0;
+          }
         }
-        lb_edge_to_costs_[zero_lb_edge] = 0.0;
       }
 
       /// Build the adjacency list of LB graph
       for (auto& edge : lb_edge_to_costs_) {
-        lbg_adj_list_[edge.first.first].push_back(edge.first.second);
-        lbg_adj_cost_list_[edge.first.first].push_back(edge.second);
+        data_.lbg_adj_list_[edge.first.first].push_back(edge.first.second);
+        data_.lbg_adj_cost_list_[edge.first.first].push_back(edge.second);
       }
     }
 
     std::unordered_map<int, std::vector<int>> GetLBAdjacencyList() const {
-      return lbg_adj_list_;
+      return data_.lbg_adj_list_;
     }
 
     std::unordered_map<int, std::vector<double>> GetLBAdjacencyCostList() const {
-      return lbg_adj_cost_list_;
+      return data_.lbg_adj_cost_list_;
     }
+
+    void PrintLBGraphStats() const {
+      int degree = 0;
+      int num_edges = 0;
+      for (auto& kv : data_.lbg_adj_list_) {
+        if (kv.second.size() > degree) {
+          degree = kv.second.size();
+        }
+        num_edges += kv.second.size();
+      }
+      std::cout << "LB Graph Stats: " << std::endl;
+      std::cout << "Number of nodes: " << data_.lbg_adj_list_.size() << std::endl;
+      std::cout << "Number of edges: " << num_edges << std::endl;
+      std::cout << "Degree: " << degree << std::endl;
+    }
+
+    std::string createFileName() {
+      return "";
+    }
+
+// Serialize Data to a file in ASCII format
+    void serializeToFile(const std::string& filePath) {
+      std::ofstream file(filePath);
+      if (file.is_open()) {
+        // Serialize data_.lbg_adj_list_
+        for (const auto& entry : data_.lbg_adj_list_) {
+          file << "adj " << entry.first << ':';
+
+          // Serialize the vector elements
+          for (int value : entry.second) {
+            file << value << ',';
+          }
+          file.seekp(-1, std::ios_base::end); // Remove the last comma
+          file << '\n';
+        }
+
+        // Serialize data_.lbg_adj_cost_list_
+        for (const auto& entry : data_.lbg_adj_cost_list_) {
+          file << "cost " << entry.first << ':';
+
+          // Serialize the vector elements
+          for (double value : entry.second) {
+            file << value << ',';
+          }
+          file.seekp(-1, std::ios_base::end); // Remove the last comma
+          file << '\n';
+        }
+
+        // Serialize data_.lbg_adj_cost_list_
+        for (const auto& entry : data_.old_id_to_new_id_) {
+          file << "idmap " << entry.first << ':';
+
+          // Serialize the vector elements
+          for (int value : entry.second) {
+            file << value << ',';
+          }
+          file.seekp(-1, std::ios_base::end); // Remove the last comma
+          file << '\n';
+        }
+
+        file.close();
+      } else {
+        std::cerr << "Error: Unable to open file for writing." << std::endl;
+      }
+    }
+
+// Deserialize Data from a file in ASCII format
+    Data deserializeFromFile(const std::string& filePath) {
+      Data data;
+      std::ifstream file(filePath);
+      if (file.is_open()) {
+        std::string line;
+        while (std::getline(file, line)) {
+          std::istringstream iss(line);
+          std::string mapType;
+          iss >> mapType;
+
+          int key;
+          char colon;
+          iss >> key >> colon;
+
+          // Deserialize vector elements
+          if (mapType == "adj") {
+            int value;
+            std::vector<int> values;
+            while (iss >> value) {
+              values.push_back(value);
+              char comma;
+              if (!(iss >> comma) || comma != ',') {
+                break;
+              }
+            }
+            data.lbg_adj_list_[key] = values;
+          } else if (mapType == "cost") {
+            double value;
+            std::vector<double> values;
+            while (iss >> value) {
+              values.push_back(value);
+              char comma;
+              if (!(iss >> comma) || comma != ',') {
+                break;
+              }
+            }
+            data.lbg_adj_cost_list_[key] = values;
+          } else if (mapType == "idmap") {
+            int value;
+            std::vector<int> values;
+            while (iss >> value) {
+              values.push_back(value);
+              char comma;
+              if (!(iss >> comma) || comma != ',') {
+                break;
+              }
+            }
+            data.old_id_to_new_id_[key] = values;
+          }
+        }
+
+        file.close();
+      } else {
+        std::cerr << "Error: Unable to open file for reading." << std::endl;
+      }
+
+      return data;
+    }
+
+
 
     std::vector<HPolyhedron> hpoly_regions_;
     std::vector<std::pair<int, int>> edges_bw_regions_;
@@ -140,36 +292,13 @@ namespace ps {
     std::vector<std::vector<int>> lbg_opt_edges_;
     std::unordered_map<std::pair<int, int>, double, hash_pair> lb_edge_to_costs_;
 
-    std::unordered_map<int, std::vector<int>> lbg_adj_list_;
-    std::unordered_map<int, std::vector<double>> lbg_adj_cost_list_;
+    Data data_;
+//    std::unordered_map<int, std::vector<int>> old_id_to_new_id_;
+//    std::unordered_map<int, std::vector<int>> lbg_adj_list_;
+//    std::unordered_map<int, std::vector<double>> lbg_adj_cost_list_;
   };
 
 }
-
-//namespace std {
-//  // A hash function used to hash a pair of any kind
-//  template <>
-//  struct hash<pair<int, int>> {
-//    size_t operator()(const pair<int, int>& p) const
-//    {
-//      std::size_t seed = 0;
-//      boost::hash_combine(seed, p.first);
-//      boost::hash_combine(seed, p.second);
-//      return seed;
-//
-////      auto hash1 = hash<int>{}(p.first);
-////      auto hash2 = hash<int>{}(p.second);
-////
-////      if (hash1 != hash2) {
-////        return hash1 ^ hash2;
-////      }
-////
-////      // If hash1 == hash2, their XOR is zero.
-////      return hash1;
-//    }
-//  };
-//}
-
 
 
 #endif //IXG_LBGRAPH_HPP
