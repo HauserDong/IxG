@@ -87,6 +87,7 @@ namespace ps {
         gcs_ = std::make_shared<GCSOpt>(regions, edges_between_regions, order, h_min, h_max,
                                         path_length_weight, time_weight, vel_lb, vel_ub,
                                         verbose);
+        gcs_->FormulateAndSetCostsAndConstraints();
       }
 
       /// Get the adjacency list of GCS graph

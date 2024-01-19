@@ -118,14 +118,15 @@ int main() {
   auto vertices = opt.GetVertices();
   opt.FormulateAndSetCostsAndConstraints();
   std::vector<double> costs;
+  std::vector<double> runtimes;
 
 
   int64_t vid_on_path[] = {1, 51, 52, 2, 3, 4, 54, 104, 154, 204, 203, 202, 252, 302, 301, 351, 401, 451, 501, 551, 552, 553, 554, 504, 505, 506, 556, 557, 507, 457, 407, 406, 456, 455, 405, 355, 356, 306, 305, 304, 303, 253, 254, 255, 205, 206, 256, 257, 207, 157, 156, 155, 105, 106, 56, 57, 7, 8, 9, 59, 58, 108, 109, 110, 111, 112, 62, 61, 11, 12, 13, 63, 64, 14, 15, 16, 66, 116, 115, 114, 164, 163, 162, 161, 211, 210, 260, 259, 209, 208, 258, 308, 358, 408, 409, 410, 411, 461, 462, 512, 513, 463, 464, 414, 415, 416, 466, 516, 517, 518, 468, 467, 417, 418, 419, 369, 319, 320, 270, 271, 321, 322, 372, 422, 472, 471, 470, 520, 570, 571, 572, 622, 623, 624, 574, 524, 525, 575, 576, 626, 676, 726, 776, 777, 827, 877, 878, 828, 829, 830, 831, 881, 882, 932, 982, 1032, 1033, 1083, 1133, 1134, 1135, 1185, 1184, 1183, 1233, 1283, 1333, 1332, 1382, 1383, 1433, 1483, 1533, 1583, 1584, 1534, 1535, 1485, 1435, 1385, 1386, 1436, 1486, 1487, 1537, 1587, 1586, 1585, 1635, 1685, 1735, 1785, 1835, 1885, 1935, 1936, 1937, 1987, 2037, 2087, 2086, 2136, 2186, 2185, 2235, 2285, 2286, 2287, 2237, 2238, 2239, 2289, 2290, 2340, 2341, 2342, 2343, 2344, 2294, 2244, 2245, 2195, 2196, 2197, 2247, 2246, 2296, 2346, 2396, 2446, 2496, 2497, 2447, 2448, 2449, 2499, 2500};
   int sz = static_cast<int>(sizeof(vid_on_path) / sizeof(int64_t ));
 
-//  for (int i=4; i<sz-2; ++i) {
-//  for (int i=3; i<4; ++i) {
-  for (int i=29; i<34; ++i) {
+  for (int i=4; i<sz-2; ++i) {
+//  for (int i=109; i<113; ++i) {
+//  for (int i=29; i<34; ++i) {
 
     std::vector<int64_t> path (vid_on_path, vid_on_path + i);
 
@@ -143,6 +144,7 @@ int main() {
     auto start_time = std::chrono::high_resolution_clock::now();
     auto soln = opt.Solve(solve_vids);
     auto end_time = std::chrono::high_resolution_clock::now();
+    runtimes.push_back(std::chrono::duration_cast<std::chrono::nanoseconds>(end_time - start_time).count()/1e9);
 
     if (soln.second.is_success()) {
 
@@ -184,11 +186,9 @@ int main() {
 //    std::cout << i << " convergence status: " << soln.second.get_solution_result() << std::endl;
   }
 
-  int i = 0;
-  for (auto c : costs) {
-//    std::cout << i << "\t" << c << "\n";
-    std::cout << c << ", ";
-    ++i;
+  for (int i=0; i<costs.size(); ++i) {
+    std::cout << i << "\t" << costs[i] << "\t" << runtimes[i] << "\n";
+//    std::cout << costs[i] << ", ";
   }
   std::cout << std::endl;
 

@@ -189,7 +189,7 @@ ps::VertexId ps::GCSOpt::AddStart(Eigen::VectorXd &start) {
   vertices_.emplace_back(gcs_->AddVertex(
           drake::geometry::optimization::CartesianProduct(vertex_set),
           fmt::format("{}", "start")));
-  vertex_id_to_vertex_[vertices_.back()->id().get_value()] = vertices_.back();
+  vertex_id_to_vertex_[vertices_.back()->id().get_value()-1] = vertices_.back();
   start_vtx_ = vertices_.back();
   start_vit_ = vertices_.end()-1;
 
@@ -205,12 +205,12 @@ ps::VertexId ps::GCSOpt::AddStart(Eigen::VectorXd &start) {
   // Connect start to start region
   GCSEdge* uv_edge = gcs_->AddEdge(start_vertex, start_region_vertex);
   edges_.emplace_back(uv_edge);
-  edge_id_to_edge_[edges_.back()->id().get_value()] = edges_.back();
+  edge_id_to_edge_[edges_.back()->id().get_value()-1] = edges_.back();
   start_eit_ = edges_.end()-1;
 
   GCSEdge* vu_edge = gcs_->AddEdge(start_region_vertex, start_vertex);
   edges_.emplace_back(vu_edge);
-  edge_id_to_edge_[edges_.back()->id().get_value()] = edges_.back();
+  edge_id_to_edge_[edges_.back()->id().get_value()-1] = edges_.back();
 
   return start_vertex->id();
 }
@@ -240,7 +240,7 @@ ps::VertexId ps::GCSOpt::AddGoal(Eigen::VectorXd &goal) {
   vertices_.emplace_back(gcs_->AddVertex(
           drake::geometry::optimization::CartesianProduct(vertex_set),
           fmt::format("{}", "goal")));
-  vertex_id_to_vertex_[vertices_.back()->id().get_value()] = vertices_.back();
+  vertex_id_to_vertex_[vertices_.back()->id().get_value()-1] = vertices_.back();
   goal_vtx_ = vertices_.back();
   goal_vit_ = vertices_.end()-1;
 
@@ -256,12 +256,12 @@ ps::VertexId ps::GCSOpt::AddGoal(Eigen::VectorXd &goal) {
   // Connect goal region to goal
   GCSEdge* uv_edge = gcs_->AddEdge(goal_region_vertex, goal_vertex);
   edges_.emplace_back(uv_edge);
-  edge_id_to_edge_[edges_.back()->id().get_value()] = edges_.back();
+  edge_id_to_edge_[edges_.back()->id().get_value()-1] = edges_.back();
   goal_eit_ = edges_.end()-1;
 
   GCSEdge* vu_edge = gcs_->AddEdge(goal_vertex, goal_region_vertex);
   edges_.emplace_back(vu_edge);
-  edge_id_to_edge_[edges_.back()->id().get_value()] = edges_.back();
+  edge_id_to_edge_[edges_.back()->id().get_value()-1] = edges_.back();
 
   return goal_vertex->id();
 }
@@ -329,6 +329,9 @@ ps::GCSOpt::Solve(std::vector<VertexId>& path_vids,
   drake::solvers::MathematicalProgram prog;
 
   for (const auto& vid : path_vids) {
+    if (vertex_id_to_vertex_.find(vid.get_value()) == vertex_id_to_vertex_.end()) {
+      std::runtime_error("Vertex ID: " + std::to_string(vid.get_value()) + " not found in the map!!");
+    }
     auto& dec_vars = vertex_id_to_vertex_[vid.get_value()]->x();
     prog.AddDecisionVariables(dec_vars);
     for (auto& slack : slack_vars_) {
@@ -498,10 +501,11 @@ void ps::GCSOpt::preprocess(const drake::geometry::optimization::ConvexSets &reg
     vertices_.emplace_back(gcs_->AddVertex(
             drake::geometry::optimization::CartesianProduct(vertex_set),
             fmt::format("{}: {}", "v" + std::to_string(i), i)));
-    vertex_id_to_vertex_[vertices_.back()->id().get_value()] = vertices_.back();
-    vertex_id_to_regions_[vertices_.back()->id().get_value()] = hpoly_regions_[i];
+    std::cout << "vid: " << vertices_.back()->id().get_value()-1 << " i " << i << std::endl;
+    vertex_id_to_vertex_[vertices_.back()->id().get_value()-1] = vertices_.back();
+    vertex_id_to_regions_[vertices_.back()->id().get_value()-1] = hpoly_regions_[i];
 
-//    std::cout << "Added vertex with id: " << vertices_.back()->id().get_value() << std::endl;
+//    std::cout << "Added vertex with id: " << vertices_.back()->id().get_value()-1 << std::endl;
   }
 
   // Connect vertices with edges.
@@ -512,7 +516,7 @@ void ps::GCSOpt::preprocess(const drake::geometry::optimization::ConvexSets &reg
     GCSEdge* uv_edge = gcs_->AddEdge(u, v);
 
     edges_.emplace_back(uv_edge);
-    edge_id_to_edge_[edges_.back()->id().get_value()] = edges_.back();
+    edge_id_to_edge_[edges_.back()->id().get_value()-1] = edges_.back();
   }
 
 }
@@ -629,7 +633,7 @@ void ps::GCSOpt::addCosts(const drake::geometry::optimization::GraphOfConvexSets
             drake::solvers::Binding<drake::solvers::Cost>(
                     time_cost_, v->x().tail(1));
 
-    vertex_id_to_cost_binding_[v->id().get_value()].emplace_back(time_cost_binding);
+    vertex_id_to_cost_binding_[v->id().get_value()-1].emplace_back(time_cost_binding);
   }
 
   if (enable_path_length_cost_) {
@@ -641,7 +645,7 @@ void ps::GCSOpt::addCosts(const drake::geometry::optimization::GraphOfConvexSets
         CostBinding path_length_cost_binding =
             drake::solvers::Binding<drake::solvers::Cost>(
         c, {control_points.col(i + 1), control_points.col(i)});
-        vertex_id_to_cost_binding_[v->id().get_value()].emplace_back(path_length_cost_binding);
+        vertex_id_to_cost_binding_[v->id().get_value()-1].emplace_back(path_length_cost_binding);
       }
     }
   }
@@ -654,17 +658,17 @@ void ps::GCSOpt::addConstraints(const drake::geometry::optimization::GraphOfConv
 //              drake::solvers::Binding<drake::solvers::Constraint>(
 //                      vc.first, FilterVariables(v->x(), vc.second));
 //
-//      vertex_id_to_constraint_binding_[v->id().get_value()].emplace_back(velocity_limits_binding);
+//      vertex_id_to_constraint_binding_[v->id().get_value()-1].emplace_back(velocity_limits_binding);
 //    }
   }
 
-//  if (start_.size() != 0 && v==vertex_id_to_vertex_[start_vtx_.get_value()]) {
+//  if (start_.size() != 0 && v==vertex_id_to_vertex_[start_vtx_.get_value()-1]) {
 //    ConstraintBinding start_point_binding =
 //            drake::solvers::Binding<drake::solvers::Constraint>(
 //                    start_point_constraint_.first,
 //                    FilterVariables(v->x(), start_point_constraint_.second));
 //
-//    vertex_id_to_constraint_binding_[start_vtx_.get_value()].emplace_back(start_point_binding);
+//    vertex_id_to_constraint_binding_[start_vtx_.get_value()-1].emplace_back(start_point_binding);
 //  }
 }
 
@@ -676,7 +680,7 @@ void ps::GCSOpt::addConstraints(const drake::geometry::optimization::GraphOfConv
                                   path_continuity_constraint_.second));
 //        std::cout << "continuity_constraint_binding: \n" << continuity_constraint_binding << std::endl;
 
-  edge_id_to_constraint_binding_[e->id().get_value()].emplace_back(continuity_constraint_binding);
+  edge_id_to_constraint_binding_[e->id().get_value()-1].emplace_back(continuity_constraint_binding);
 }
 
 void ps::GCSOpt::setupCostsAndConstraints() {

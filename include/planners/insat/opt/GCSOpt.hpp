@@ -129,7 +129,7 @@ namespace ps {
     virtual void formulateTimeCost();
     void formulatePathLengthCost();
     void formulatePathContinuityConstraint();
-    void formulateVelocityConstraint();
+    virtual void formulateVelocityConstraint();
     void formulateCostsAndConstraints();
 
     bool verbose_;

@@ -115,7 +115,10 @@ namespace ps
     insat_state_open_list_.push(start_state_ptr_);
 
     constructInsatActions();
+
+#if OPTIMAL
     calculateBounds();
+#endif
   }
 
   void INSATxGCS::calculateBounds() {
@@ -299,7 +302,7 @@ namespace ps
 #if OPTIMAL
 //        double lb = new_g_val + lb_cost_[static_cast<int>(successor_state_ptr->GetStateVars()[0])];
         double lb = state_ptr->GetGValue() + lb_cost_[static_cast<int>(successor_state_ptr->GetStateVars()[0])];
-//        if (0.9*lb > ub_cost_[static_cast<int>(successor_state_ptr->GetStateVars()[0])]) {
+//        if (0.2*lb > ub_cost_[static_cast<int>(successor_state_ptr->GetStateVars()[0])]) {
         if (lb > ub_cost_[static_cast<int>(successor_state_ptr->GetStateVars()[0])]) {
           planner_stats_.num_pruned_edges_++;
 #if VERBOSE
@@ -320,8 +323,8 @@ namespace ps
           double h_val = successor_state_ptr->GetHValue();
           if (h_val == -1)
           {
-//            h_val = computeHeuristic(successor_state_ptr);
-            h_val = lb_cost_[static_cast<int>(successor_state_ptr->GetStateVars()[0])];
+            h_val = computeHeuristic(successor_state_ptr);
+//            h_val = lb_cost_[static_cast<int>(successor_state_ptr->GetStateVars()[0])];
             successor_state_ptr->SetHValue(h_val);
           }
 

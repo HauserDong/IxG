@@ -8,6 +8,7 @@ list(APPEND CMAKE_PREFIX_PATH /opt/drake)
 find_package(OpenCV REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(drake REQUIRED)
+find_package(Boost REQUIRED COMPONENTS filesystem serialization)
 
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
@@ -38,6 +39,7 @@ set(INSATxGCS_SOURCES
         src/planners/insat/pINSATxGCS.cpp
         src/planners/insat/opt/GCSOpt.cpp
         src/planners/insat/opt/GCSSmoothOpt.cpp
+        src/planners/insat/opt/LBGraph.cpp
 )
 
 
@@ -85,5 +87,22 @@ add_executable(gcsopt_monotonicity
         src/planners/insat/opt/GCSOpt.cpp)
 
 target_link_libraries(gcsopt_monotonicity
+        ${drake_LIBRARIES}
+        pthread)
+
+add_executable(read_itamar_logs
+        examples/insatxgcs/read_itamar_logs.cpp)
+
+target_link_libraries(read_itamar_logs
+        ${Boost_LIBRARIES})
+
+add_executable(lbg_test
+        examples/insatxgcs/lbg_test.cpp
+        src/common/insatxgcs/utils.cpp
+        src/planners/insat/opt/GCSOpt.cpp
+        src/planners/insat/opt/GCSSmoothOpt.cpp
+        src/planners/insat/opt/LBGraph.cpp)
+
+target_link_libraries(lbg_test
         ${drake_LIBRARIES}
         pthread)

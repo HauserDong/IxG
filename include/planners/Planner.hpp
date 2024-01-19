@@ -1,8 +1,8 @@
 #ifndef PLANNER_HPP
 #define PLANNER_HPP
 
-#define VERBOSE 1
-#define OPTIMAL 1
+#define VERBOSE 0
+#define OPTIMAL 0
 
 #include <functional>
 #include <future>
