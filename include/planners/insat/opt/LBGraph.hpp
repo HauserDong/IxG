@@ -40,6 +40,7 @@
 
 #include <sstream>
 #include <fstream>
+#include <queue>
 
 namespace ps {
 
@@ -64,7 +65,10 @@ namespace ps {
 
     struct Data
     {
-      std::unordered_map<int, std::vector<int>> old_id_to_new_id_;
+//      std::unordered_map<int, std::vector<int>> old_id_to_new_id_;
+      std::unordered_map<std::pair<int, int>, std::vector<int>, hash_pair> old_id_to_new_id_;
+      std::unordered_map<std::pair<int, int>, std::vector<int>, hash_pair> entry_id_;
+      std::unordered_map<std::pair<int, int>, std::vector<int>, hash_pair> exit_id_;
       std::unordered_map<int, std::vector<int>> lbg_adj_list_;
       std::unordered_map<int, std::vector<double>> lbg_adj_cost_list_;
     };
@@ -117,24 +121,31 @@ namespace ps {
         int out_id = new_id++;
         std::pair<int, int> nz_lb_edge = {in_id, out_id};
         /// Save the edges with costs
-        if (lb_edge_to_costs_.find(nz_lb_edge) != lb_edge_to_costs_.end()) {
-          if (cost < lb_edge_to_costs_[nz_lb_edge]) {
-            lb_edge_to_costs_[nz_lb_edge] = cost;
-            data_.old_id_to_new_id_[edge[0]].push_back(in_id);
-            data_.old_id_to_new_id_[edge[2]].push_back(out_id);
-          }
-        } else {
-          lb_edge_to_costs_[nz_lb_edge] = cost;
-          data_.old_id_to_new_id_[edge[0]].push_back(in_id);
-          data_.old_id_to_new_id_[edge[2]].push_back(out_id);
-        }
+        lb_edge_to_costs_[nz_lb_edge] = cost;
+        /// Delete next two lines
+//            data_.old_id_to_new_id_[edge[0]].push_back(in_id);
+//            data_.old_id_to_new_id_[edge[2]].push_back(out_id);
+
+        /// this works
+        data_.old_id_to_new_id_[{edge[0], edge[1]}].push_back(in_id);
+        data_.old_id_to_new_id_[{edge[1], edge[2]}].push_back(out_id);
+
+        /// keeping track of exits and entries separately
+        data_.entry_id_[{edge[0], edge[1]}].push_back(in_id);
+        data_.exit_id_[{edge[1], edge[2]}].push_back(out_id);
       }
+
       /// Add the zero cost edges
       for (auto& edge : edges_between_regions) {
-        auto in_new_id = data_.old_id_to_new_id_[edge.first];
-        auto out_new_id = data_.old_id_to_new_id_[edge.second];
+        auto in_new_id = data_.old_id_to_new_id_[edge];
+        auto out_new_id = data_.old_id_to_new_id_[edge];
+
+//        auto in_new_id = data_.entry_id_[edge];
+//        auto out_new_id = data_.exit_id_[edge];
+
         for (auto& in : in_new_id) {
           for (auto& out : out_new_id) {
+            if (in == out) { continue;}
             std::pair<int, int> zero_lb_edge = {in, out};
             if (lb_edge_to_costs_.find(zero_lb_edge) != lb_edge_to_costs_.end()) {
               throw std::runtime_error("Zero LB found!!");
@@ -207,16 +218,16 @@ namespace ps {
         }
 
         // Serialize data_.lbg_adj_cost_list_
-        for (const auto& entry : data_.old_id_to_new_id_) {
-          file << "idmap " << entry.first << ':';
-
-          // Serialize the vector elements
-          for (int value : entry.second) {
-            file << value << ',';
-          }
-          file.seekp(-1, std::ios_base::end); // Remove the last comma
-          file << '\n';
-        }
+//        for (const auto& entry : data_.old_id_to_new_id_) {
+//          file << "idmap " << entry.first << ':';
+//
+//          // Serialize the vector elements
+//          for (int value : entry.second) {
+//            file << value << ',';
+//          }
+//          file.seekp(-1, std::ios_base::end); // Remove the last comma
+//          file << '\n';
+//        }
 
         file.close();
       } else {
@@ -262,18 +273,19 @@ namespace ps {
               }
             }
             data.lbg_adj_cost_list_[key] = values;
-          } else if (mapType == "idmap") {
-            int value;
-            std::vector<int> values;
-            while (iss >> value) {
-              values.push_back(value);
-              char comma;
-              if (!(iss >> comma) || comma != ',') {
-                break;
-              }
-            }
-            data.old_id_to_new_id_[key] = values;
           }
+//          else if (mapType == "idmap") {
+//            int value;
+//            std::vector<int> values;
+//            while (iss >> value) {
+//              values.push_back(value);
+//              char comma;
+//              if (!(iss >> comma) || comma != ',') {
+//                break;
+//              }
+//            }
+//            data.old_id_to_new_id_[key] = values;
+//          }
         }
 
         file.close();
@@ -294,9 +306,47 @@ namespace ps {
     std::unordered_map<std::pair<int, int>, double, hash_pair> lb_edge_to_costs_;
 
     Data data_;
-//    std::unordered_map<int, std::vector<int>> old_id_to_new_id_;
-//    std::unordered_map<int, std::vector<int>> lbg_adj_list_;
-//    std::unordered_map<int, std::vector<double>> lbg_adj_cost_list_;
+  };
+
+  class LBGSearch {
+  public:
+    const int INF = 1e9;
+
+    std::unordered_map<int, double> Dijkstra(const std::unordered_map<int, std::vector<int>>& graph,
+                                             const std::unordered_map<int, std::vector<double>>& costs,
+                                             int start) {
+
+      std::priority_queue<std::pair<double, int>, std::vector<std::pair<double, int>>, std::greater<std::pair<double, double>>> pq;
+      std::unordered_map<int, double> distance;
+      for (const auto& node : graph) {
+        distance[node.first] = INF;
+      }
+
+      distance[start] = 0.0;
+      pq.push({0.0, start});
+
+      while (!pq.empty()) {
+        int u = pq.top().second;
+        int dist_u = pq.top().first;
+        pq.pop();
+
+        if (dist_u > distance[u]) {
+          continue; // Skip outdated entries in priority queue
+        }
+
+        for (int i=0; i<graph.at(u).size(); ++i) {
+          int v = graph.at(u)[i];
+          double weight = costs.at(u)[i];
+
+          if (distance[u] + weight < distance[v]) {
+            distance[v] = distance[u] + weight;
+            pq.emplace(distance[v], v);
+          }
+        }
+      }
+      return distance;
+    }
+
   };
 
 }

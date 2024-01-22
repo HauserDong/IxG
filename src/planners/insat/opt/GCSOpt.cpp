@@ -295,10 +295,10 @@ std::pair<drake::trajectories::CompositeTrajectory<double>,
                                                                      Eigen::VectorXd& initial_guess) {
   std::vector<EdgeId> path_eids;
   for (int i=0; i<path_vids.size()-1; ++i) {
-    int64_t uid = path_vids[i].get_value();
-    int64_t vid = path_vids[i+1].get_value();
+    int64_t uid = path_vids[i].get_value()-1;
+    int64_t vid = path_vids[i+1].get_value()-1;
     for (auto& e : edges_) {
-      if (e->u().id().get_value() == uid && e->v().id().get_value() == vid) {
+      if (e->u().id().get_value()-1 == uid && e->v().id().get_value()-1 == vid) {
         path_eids.push_back(e->id());
         break;
       }
@@ -329,30 +329,30 @@ ps::GCSOpt::Solve(std::vector<VertexId>& path_vids,
   drake::solvers::MathematicalProgram prog;
 
   for (const auto& vid : path_vids) {
-    if (vertex_id_to_vertex_.find(vid.get_value()) == vertex_id_to_vertex_.end()) {
-      std::runtime_error("Vertex ID: " + std::to_string(vid.get_value()) + " not found in the map!!");
+    if (vertex_id_to_vertex_.find(vid.get_value()-1) == vertex_id_to_vertex_.end()) {
+      std::runtime_error("Vertex ID: " + std::to_string(vid.get_value()-1) + " not found in the map!!");
     }
-    auto& dec_vars = vertex_id_to_vertex_[vid.get_value()]->x();
+    auto& dec_vars = vertex_id_to_vertex_[vid.get_value()-1]->x();
     prog.AddDecisionVariables(dec_vars);
     for (auto& slack : slack_vars_) {
       prog.AddDecisionVariables(slack);
     }
-    for (const auto& cost : vertex_id_to_cost_binding_[vid.get_value()]) {
+    for (const auto& cost : vertex_id_to_cost_binding_[vid.get_value()-1]) {
       prog.AddCost(cost);
     }
-    for (const auto& constraint : vertex_id_to_constraint_binding_[vid.get_value()]) {
+    for (const auto& constraint : vertex_id_to_constraint_binding_[vid.get_value()-1]) {
       prog.AddConstraint(constraint);
     }
-    vertex_id_to_vertex_[vid.get_value()]->set().
+    vertex_id_to_vertex_[vid.get_value()-1]->set().
             AddPointInSetConstraints(&prog, dec_vars); // except the last var which is time scaling
   }
 
   for (const auto& eid : path_eids) {
-//    auto& edge = edge_id_to_edge_[eid.get_value()];
+//    auto& edge = edge_id_to_edge_[eid.get_value()-1];
 //    const Eigen::VectorX<drake::symbolic::Variable> edge_vars =
 //            drake::solvers::ConcatenateVariableRefList({edge->xu(), edge->xv()});
 //    prog.AddDecisionVariables(edge_vars);
-    for (const auto& constraint : edge_id_to_constraint_binding_[eid.get_value()]) {
+    for (const auto& constraint : edge_id_to_constraint_binding_[eid.get_value()-1]) {
       prog.AddConstraint(constraint);
     }
   }
@@ -404,7 +404,7 @@ ps::GCSOpt::Solve(std::vector<VertexId>& path_vids,
 // Extract the path from the edges.
   std::vector<drake::copyable_unique_ptr<drake::trajectories::Trajectory<double>>> bezier_curves;
   for (const auto& id : path_vids) {
-    auto& vertex = vertex_id_to_vertex_[id.get_value()];
+    auto& vertex = vertex_id_to_vertex_[id.get_value()-1];
     const int num_control_points = order_ + 1;
     const Eigen::MatrixX<double> path_points =
             Eigen::Map<Eigen::MatrixX<double>>(result.GetSolution(vertex->x()).data(),
@@ -501,7 +501,7 @@ void ps::GCSOpt::preprocess(const drake::geometry::optimization::ConvexSets &reg
     vertices_.emplace_back(gcs_->AddVertex(
             drake::geometry::optimization::CartesianProduct(vertex_set),
             fmt::format("{}: {}", "v" + std::to_string(i), i)));
-    std::cout << "vid: " << vertices_.back()->id().get_value()-1 << " i " << i << std::endl;
+//    std::cout << "vid: " << vertices_.back()->id().get_value()-1 << " i " << i << std::endl;
     vertex_id_to_vertex_[vertices_.back()->id().get_value()-1] = vertices_.back();
     vertex_id_to_regions_[vertices_.back()->id().get_value()-1] = hpoly_regions_[i];
 

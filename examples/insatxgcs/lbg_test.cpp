@@ -70,5 +70,37 @@ int main() {
               h_min, h_max);
 
   lbg.PrintLBGraphStats();
+  auto graph = lbg.GetLBAdjacencyList();
+  auto costs = lbg.GetLBAdjacencyCostList();
+
+  int start_id = 0;
+
+//  int id = start_id;
+//  std::priority_queue<int> pq;
+//  pq.push(id);
+//  while(!pq.empty()) {
+//    id = pq.top();
+//    std::cout << "Adjacency of state id: " << id << " is " << graph[id].size() << std::endl;
+//    pq.pop();
+//    for (auto g : graph[id]) {
+//      pq.push(g);
+//    }
+//  }
+
+  LBGSearch search;
+
+  auto start_time = std::chrono::high_resolution_clock::now();
+  auto graph_dist = search.Dijkstra(graph, costs, start_id);
+  auto end_time = std::chrono::high_resolution_clock::now();
+
+  std::cout << "Dijkstra took " << std::chrono::duration_cast<std::chrono::nanoseconds>(end_time - start_time).count()/1e9 << "s" << std::endl;
+
+  for (auto d : graph_dist) {
+    if (d.second < 1e3) {
+//      std::cout << d.first << "\t" << d.second << std::endl;
+    } else {
+      std::cout << "> 1e3" << std::endl;
+    }
+  }
 
 }
