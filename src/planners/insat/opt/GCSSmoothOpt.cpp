@@ -40,7 +40,7 @@ namespace ps {
 
 
   void ps::GCSSmoothOpt::formulateContinuityConstraint() {
-    const Eigen::VectorX<drake::symbolic::Variable> edge_vars =
+    const drake::VectorX<drake::symbolic::Variable> edge_vars =
         drake::solvers::ConcatenateVariableRefList({u_vars_, v_vars_});
 
     for (int deriv = 0; deriv < continuity_ + 1; ++deriv) {
@@ -50,7 +50,7 @@ namespace ps {
       auto v_path_deriv = DynamicUniqueCast<drake::trajectories::BsplineTrajectory<drake::symbolic::Expression>>
           (v_r_trajectory_.MakeDerivative(deriv));
 
-      const Eigen::VectorX<drake::symbolic::Expression> path_continuity_error =
+      const drake::VectorX<drake::symbolic::Expression> path_continuity_error =
           v_path_deriv->control_points().front() -
           u_path_deriv->control_points().back();
       Eigen::MatrixXd M(num_positions_, edge_vars.size());
@@ -68,7 +68,7 @@ namespace ps {
       auto v_time_deriv = DynamicUniqueCast<drake::trajectories::BsplineTrajectory<drake::symbolic::Expression>>
           (v_h_trajectory_.MakeDerivative(deriv));
 
-      const Eigen::VectorX<drake::symbolic::Expression> time_continuity_error =
+      const drake::VectorX<drake::symbolic::Expression> time_continuity_error =
           v_time_deriv->control_points().front() -
           u_time_deriv->control_points().back();
       Eigen::MatrixXd M_h(num_positions_, edge_vars.size());
@@ -84,9 +84,9 @@ namespace ps {
 
 
 
-  std::vector<Eigen::MatrixX<drake::symbolic::Expression>>
-  ps::GCSSmoothOpt::ControlPointsOf(const Eigen::MatrixX<drake::symbolic::Variable> &mat) {
-    std::vector<Eigen::MatrixX<drake::symbolic::Expression>> vec;
+  std::vector<drake::MatrixX<drake::symbolic::Expression>>
+  ps::GCSSmoothOpt::ControlPointsOf(const drake::MatrixX<drake::symbolic::Variable> &mat) {
+    std::vector<drake::MatrixX<drake::symbolic::Expression>> vec;
     for (int i = 0; i < mat.cols(); ++i)
       vec.push_back(mat.col(i));
     return vec;
@@ -94,38 +94,38 @@ namespace ps {
 
   void GCSSmoothOpt::setupVars() {
     // formulate edge costs and constraints
-    const Eigen::MatrixX<drake::symbolic::Variable> u_control =
+    const drake::MatrixX<drake::symbolic::Variable> u_control =
         drake::symbolic::MakeMatrixContinuousVariable(num_positions_, order_ + 1, "xu");
-    const Eigen::MatrixX<drake::symbolic::Variable> v_control =
+    const drake::MatrixX<drake::symbolic::Variable> v_control =
         drake::symbolic::MakeMatrixContinuousVariable(num_positions_, order_ + 1, "xv");
-    const Eigen::VectorX<drake::symbolic::Variable> u_duration =
+    const drake::VectorX<drake::symbolic::Variable> u_duration =
         drake::symbolic::MakeVectorContinuousVariable(order_ + 1, "Tu");
-    const Eigen::VectorX<drake::symbolic::Variable> v_duration =
+    const drake::VectorX<drake::symbolic::Variable> v_duration =
         drake::symbolic::MakeVectorContinuousVariable(order_ + 1, "Tv");
 
     u_vars_.resize(u_control.size() + u_duration.size());
     u_vars_ <<
-            Eigen::Map<const Eigen::VectorX<drake::symbolic::Variable>>(u_control.data(), u_control.size()),
+            Eigen::Map<const drake::VectorX<drake::symbolic::Variable>>(u_control.data(), u_control.size()),
         u_duration;
     u_r_trajectory_ = drake::trajectories::BsplineTrajectory<drake::symbolic::Expression>(
         drake::math::BsplineBasis<drake::symbolic::Expression>(
             order_ + 1, order_ + 1, drake::math::KnotVectorType::kClampedUniform, 0.0, 1.0),
         ControlPointsOf(u_control));
-    Eigen::MatrixX<drake::symbolic::Variable> u_duration_transpose = u_duration.transpose();
+    drake::MatrixX<drake::symbolic::Variable> u_duration_transpose = u_duration.transpose();
     u_h_trajectory_ = drake::trajectories::BsplineTrajectory<drake::symbolic::Expression>(
         drake::math::BsplineBasis<drake::symbolic::Expression>(
             order_ + 1, order_ + 1, drake::math::KnotVectorType::kClampedUniform, 0.0, 1.0),
         ControlPointsOf(u_duration_transpose));
 
-    Eigen::VectorX<drake::symbolic::Variable> edge_vars(u_control.size() + u_duration.size() + v_control.size() + v_duration.size());
+    drake::VectorX<drake::symbolic::Variable> edge_vars(u_control.size() + u_duration.size() + v_control.size() + v_duration.size());
     edge_vars <<
-              Eigen::Map<const Eigen::VectorX<drake::symbolic::Variable>>(u_control.data(), u_control.size()),
-        u_duration,Eigen::Map<const Eigen::VectorX<drake::symbolic::Variable>>(v_control.data(), v_control.size()),
+              Eigen::Map<const drake::VectorX<drake::symbolic::Variable>>(u_control.data(), u_control.size()),
+        u_duration,Eigen::Map<const drake::VectorX<drake::symbolic::Variable>>(v_control.data(), v_control.size()),
         v_duration;
     v_r_trajectory_ = drake::trajectories::BsplineTrajectory<drake::symbolic::Expression>(
         drake::math::BsplineBasis<drake::symbolic::Expression>(order_ + 1, order_ + 1, drake::math::KnotVectorType::kClampedUniform, 0.0, 1.0),
         ControlPointsOf(v_control));
-    Eigen::MatrixX<drake::symbolic::Variable> v_duration_transpose = v_duration.transpose();
+    drake::MatrixX<drake::symbolic::Variable> v_duration_transpose = v_duration.transpose();
     v_h_trajectory_ = drake::trajectories::BsplineTrajectory<drake::symbolic::Expression>(
         drake::math::BsplineBasis<drake::symbolic::Expression>(order_ + 1, order_ + 1, drake::math::KnotVectorType::kClampedUniform, 0.0, 1.0),
         ControlPointsOf(v_duration_transpose));
@@ -160,8 +160,8 @@ namespace ps {
   }
 
   void GCSSmoothOpt::formulateTimeCost() {
-    const std::vector<Eigen::MatrixX<drake::symbolic::Expression>> u_time_control = u_h_trajectory_.control_points();
-    Eigen::VectorX<drake::symbolic::Expression> segment_time = u_time_control.back() - u_time_control.front();
+    const std::vector<drake::MatrixX<drake::symbolic::Expression>> u_time_control = u_h_trajectory_.control_points();
+    drake::VectorX<drake::symbolic::Expression> segment_time = u_time_control.back() - u_time_control.front();
     Eigen::MatrixXd M(segment_time.rows(), u_vars_.size());
     DecomposeLinearExpressions(segment_time, u_vars_, &M);
     time_cost_ = std::make_shared<drake::solvers::LinearCost>(time_weight_ * M.row(0), 0.0);
@@ -176,8 +176,8 @@ namespace ps {
 
     if (u_path_deriv->basis().order() == 1) {
       for (drake::symbolic::Expression t : {0.0, 1.0}) {
-        Eigen::VectorX<drake::symbolic::Expression> q_ds = u_path_deriv->value(t);
-        Eigen::VectorX<drake::symbolic::Expression> costs(num_positions_);
+        drake::VectorX<drake::symbolic::Expression> q_ds = u_path_deriv->value(t);
+        drake::VectorX<drake::symbolic::Expression> costs(num_positions_);
         for (size_t i = 0; i < num_positions_; ++i)
           costs(i) = q_ds(i);
         Eigen::MatrixXd H(costs.rows(), u_vars_.cols());
@@ -186,9 +186,9 @@ namespace ps {
             std::make_shared<drake::solvers::L2NormCost>(path_length_integral_weight_ * H, Eigen::VectorXd::Zero(num_positions_));
       }
     } else {
-      Eigen::MatrixX<drake::symbolic::Expression> q_ds = u_path_deriv->vector_values(s_points);
+      drake::MatrixX<drake::symbolic::Expression> q_ds = u_path_deriv->vector_values(s_points);
       for (size_t i = 0; i < integration_points + 1; ++i) {
-        Eigen::VectorX<drake::symbolic::Expression> costs(num_positions_);
+        drake::VectorX<drake::symbolic::Expression> costs(num_positions_);
         for (size_t j = 0; j < num_positions_; ++j) {
           costs(j) = (i == 0 || i == integration_points)
                      ? 0.5 * 1.0 / integration_points * q_ds(j, i)
@@ -206,10 +206,10 @@ namespace ps {
     Eigen::MatrixXd weight_matrix = Eigen::MatrixXd::Identity(num_positions_, num_positions_);
     weight_matrix *= path_energy_integral_weight_;
 
-    const std::vector<Eigen::MatrixX<drake::symbolic::Expression>> u_path_control =
+    const std::vector<drake::MatrixX<drake::symbolic::Expression>> u_path_control =
         utils::DynamicUniqueCast<drake::trajectories::BsplineTrajectory<drake::symbolic::Expression>>(
             u_r_trajectory_.MakeDerivative(1))->control_points();
-    const std::vector<Eigen::MatrixX<drake::symbolic::Expression>> u_time_control =
+    const std::vector<drake::MatrixX<drake::symbolic::Expression>> u_time_control =
         utils::DynamicUniqueCast<drake::trajectories::BsplineTrajectory<drake::symbolic::Expression>>(
             u_h_trajectory_.MakeDerivative(1))->control_points();
     for (size_t i = 0; i < u_path_control.size(); ++i) {
@@ -233,7 +233,7 @@ namespace ps {
     for (size_t i = 0; i < 2; ++i) {
       auto traj = trajectories[i];
       auto weight = weights[i];
-      const std::vector<Eigen::MatrixX<drake::symbolic::Expression>> derivative_control =
+      const std::vector<drake::MatrixX<drake::symbolic::Expression>> derivative_control =
           utils::DynamicUniqueCast<drake::trajectories::BsplineTrajectory<drake::symbolic::Expression>>(
               traj.MakeDerivative(order))->control_points();
 
@@ -250,11 +250,11 @@ namespace ps {
     assert (vel_lb_.size() == num_positions_);
     assert (vel_ub_.size() == num_positions_);
 
-    const std::vector<Eigen::MatrixX<drake::symbolic::Expression>> u_path_control =
+    const std::vector<drake::MatrixX<drake::symbolic::Expression>> u_path_control =
         utils::DynamicUniqueCast<drake::trajectories::BsplineTrajectory<drake::symbolic::Expression>>(
             u_r_trajectory_.MakeDerivative(1)
         )->control_points();
-    const std::vector<Eigen::MatrixX<drake::symbolic::Expression>> u_time_control =
+    const std::vector<drake::MatrixX<drake::symbolic::Expression>> u_time_control =
         utils::DynamicUniqueCast<drake::trajectories::BsplineTrajectory<drake::symbolic::Expression>>(
             u_h_trajectory_.MakeDerivative(1))->control_points();
 

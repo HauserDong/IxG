@@ -88,8 +88,8 @@ namespace ps {
 
 
     void formulateContinuityConstraint();
-    std::vector<Eigen::MatrixX<drake::symbolic::Expression>>
-          ControlPointsOf(const Eigen::MatrixX<drake::symbolic::Variable>& mat);
+    std::vector<drake::MatrixX<drake::symbolic::Expression>>
+          ControlPointsOf(const drake::MatrixX<drake::symbolic::Variable>& mat);
 // dynamic_unique_cast for unique_ptr
     template <typename To, typename From, typename Deleter>
     std::unique_ptr<To, Deleter> DynamicUniqueCast(std::unique_ptr<From, Deleter>&& p);

@@ -75,10 +75,10 @@ namespace ps {
 
 // Filters variables given a vector of variables along with a boolean vector
 // indicating which rows were preserved (true) or removed (false).
-  Eigen::VectorX<drake::symbolic::Variable> FilterVariables(
-          const Eigen::VectorX<drake::symbolic::Variable>& vars,
+  drake::VectorX<drake::symbolic::Variable> FilterVariables(
+          const drake::VectorX<drake::symbolic::Variable>& vars,
           const VectorXb& nonzero_cols_mask) {
-    Eigen::VectorX<drake::symbolic::Variable> vars_dense(nonzero_cols_mask.count());
+    drake::VectorX<drake::symbolic::Variable> vars_dense(nonzero_cols_mask.count());
     int row = 0;
     for (int i = 0; i < vars.size(); ++i) {
       if (nonzero_cols_mask(i)) {
@@ -406,8 +406,8 @@ ps::GCSOpt::Solve(std::vector<VertexId>& path_vids,
   for (const auto& id : path_vids) {
     auto& vertex = vertex_id_to_vertex_[id.get_value()-1];
     const int num_control_points = order_ + 1;
-    const Eigen::MatrixX<double> path_points =
-            Eigen::Map<Eigen::MatrixX<double>>(result.GetSolution(vertex->x()).data(),
+    const drake::MatrixX<double> path_points =
+            Eigen::Map<drake::MatrixX<double>>(result.GetSolution(vertex->x()).data(),
                                                num_positions_, num_control_points);
 
     double h;
@@ -444,15 +444,15 @@ void ps::GCSOpt::CleanUp() {
 }
 
 void ps::GCSOpt::setupVars() {
-  const Eigen::MatrixX<drake::symbolic::Variable> u_control =
+  const drake::MatrixX<drake::symbolic::Variable> u_control =
           drake::symbolic::MakeMatrixContinuousVariable(
                   num_positions_, order_ + 1, "xu");
-  const Eigen::MatrixX<drake::symbolic::Variable> v_control =
+  const drake::MatrixX<drake::symbolic::Variable> v_control =
           drake::symbolic::MakeMatrixContinuousVariable(
                   num_positions_, order_ + 1, "xv");
-  Eigen::Map<const Eigen::VectorX<drake::symbolic::Variable>> u_control_vars(
+  Eigen::Map<const drake::VectorX<drake::symbolic::Variable>> u_control_vars(
           u_control.data(), u_control.size());
-  Eigen::Map<const Eigen::VectorX<drake::symbolic::Variable>> v_control_vars(
+  Eigen::Map<const drake::VectorX<drake::symbolic::Variable>> v_control_vars(
           v_control.data(), v_control.size());
 
   if (enable_time_cost_) {
@@ -548,10 +548,10 @@ void ps::GCSOpt::formulatePathLengthCost() {
 }
 
 void ps::GCSOpt::formulatePathContinuityConstraint() {
-  const Eigen::VectorX<drake::symbolic::Variable> edge_vars =
+  const drake::VectorX<drake::symbolic::Variable> edge_vars =
           drake::solvers::ConcatenateVariableRefList({u_vars_, v_vars_});
 
-  const Eigen::VectorX<drake::symbolic::Expression> path_continuity_error =
+  const drake::VectorX<drake::symbolic::Expression> path_continuity_error =
           v_r_trajectory_.control_points().col(0) -
           u_r_trajectory_.control_points().col(order_);
   Eigen::MatrixXd M(num_positions_, edge_vars.size());
@@ -638,7 +638,7 @@ void ps::GCSOpt::addCosts(const drake::geometry::optimization::GraphOfConvexSets
 
   if (enable_path_length_cost_) {
     for (const auto& c : path_length_cost_) {
-      auto control_points = Eigen::Map<const Eigen::MatrixX<drake::symbolic::Variable>>(
+      auto control_points = Eigen::Map<const drake::MatrixX<drake::symbolic::Variable>>(
           v->x().data(), num_positions_, order_ + 1);
 
       for (int i = 0; i < control_points.cols() - 1; ++i) {

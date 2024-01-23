@@ -73,7 +73,7 @@ int main() {
   auto graph = lbg.GetLBAdjacencyList();
   auto costs = lbg.GetLBAdjacencyCostList();
 
-  int start_id = 0;
+  int start_id = 3;
 
 //  int id = start_id;
 //  std::priority_queue<int> pq;
@@ -99,7 +99,7 @@ int main() {
     if (d.second < 1e3) {
 //      std::cout << d.first << "\t" << d.second << std::endl;
     } else {
-      std::cout << "> 1e3" << std::endl;
+//      std::cout << "> 1e3" << std::endl;
     }
   }
 

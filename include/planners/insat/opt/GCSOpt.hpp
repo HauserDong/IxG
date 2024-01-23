@@ -154,12 +154,12 @@ namespace ps {
     std::vector<GCSEdge*>::iterator goal_eit_;
 
     /// Variables
-    Eigen::VectorX<drake::symbolic::Variable> u_h_;
-    Eigen::VectorX<drake::symbolic::Variable> u_vars_;
+    drake::VectorX<drake::symbolic::Variable> u_h_;
+    drake::VectorX<drake::symbolic::Variable> u_vars_;
     drake::trajectories::BezierCurve<drake::symbolic::Expression> u_r_trajectory_;
 
-    Eigen::VectorX<drake::symbolic::Variable> v_h_;
-    Eigen::VectorX<drake::symbolic::Variable> v_vars_;
+    drake::VectorX<drake::symbolic::Variable> v_h_;
+    drake::VectorX<drake::symbolic::Variable> v_vars_;
     drake::trajectories::BezierCurve<drake::symbolic::Expression> v_r_trajectory_;
 
     /// Vertices and edges for optimization (for matrix operations over control points)

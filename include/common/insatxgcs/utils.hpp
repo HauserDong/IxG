@@ -58,8 +58,8 @@ namespace utils
 
 // Filters variables given a vector of variables along with a boolean vector
 // indicating which rows were preserved (true) or removed (false).
-  Eigen::VectorX<drake::symbolic::Variable> FilterVariables(
-      const Eigen::VectorX<drake::symbolic::Variable>& vars,
+  drake::VectorX<drake::symbolic::Variable> FilterVariables(
+      const drake::VectorX<drake::symbolic::Variable>& vars,
       const VectorXb& nonzero_cols_mask);
 
 } // namespace utils

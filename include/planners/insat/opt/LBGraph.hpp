@@ -95,12 +95,14 @@ namespace ps {
       }
 
       /// Get the adjacency list of GCS graph
-      std::unordered_map<int, std::vector<int>> adjacency_list_;
+//      std::unordered_map<int, std::vector<int>> adjacency_list_;
+      std::map<int, std::vector<int>> adjacency_list_;
       for (auto& edge : edges_between_regions) {
         adjacency_list_[edge.first].push_back(edge.second);
       }
 
       /// Build the set of non-zero cost LB edge triplets (in_id, node_id, out_id)
+      int temp = 0;
       for (auto& out : adjacency_list_) {
         int ctr = out.first;
         for (int v=0; v < out.second.size(); v++) {
@@ -109,6 +111,15 @@ namespace ps {
             lbg_opt_edges_.push_back({out.second[w], ctr, out.second[v]});
           }
         }
+        temp++;
+        if (temp > 3) {
+          break;
+        }
+      }
+
+      std::cout << "LB edges: " << std::endl;
+      for (auto l : lbg_opt_edges_) {
+        std::cout << l[0] << " " << l[1] << " " << l[2] << std::endl;
       }
 
       int new_id = 0;
@@ -135,8 +146,11 @@ namespace ps {
         data_.exit_id_[{edge[1], edge[2]}].push_back(out_id);
       }
 
+      std::cout << "LB edge to cost: " << std::endl;
       /// Add the zero cost edges
       for (auto& edge : edges_between_regions) {
+        if (data_.old_id_to_new_id_.find(edge) == data_.old_id_to_new_id_.end()) { continue; }
+        std::cout << "Edge: " << edge.first << " " << edge.second << std::endl;
         auto in_new_id = data_.old_id_to_new_id_[edge];
         auto out_new_id = data_.old_id_to_new_id_[edge];
 

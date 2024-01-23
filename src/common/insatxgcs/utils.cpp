@@ -122,11 +122,18 @@ origin: https://github.com/scipy/scipy/blob/main/scipy/optimize/Zeros/brentq.c
     file << regions.size();
     for (auto & region : regions) {
       file << "," << region.A().rows() << "," << region.A().cols();
-      for (size_t i = 0; i < region.A().rows(); ++i)
-        for (auto & entry : region.A().row(i))
-          file << "," << entry;
-      for (auto & entry : region.b())
-        file << "," << entry;
+      for (size_t i = 0; i < region.A().rows(); ++i) {
+        for (int j=0; j<region.A().row(i).size(); ++j) {
+          file << "," << region.A().row(i)(j);
+        }
+      }
+//        for (auto & entry : region.A().row(i))
+//          file << "," << entry;
+      for (int i=0; i<region.b().size(); ++i) {
+        file << "," << region.b()(i);
+      }
+//      for (auto & entry : region.b())
+//        file << "," << entry;
     }
   }
 
@@ -161,9 +168,9 @@ origin: https://github.com/scipy/scipy/blob/main/scipy/optimize/Zeros/brentq.c
     return std::make_tuple(condensed_matrices, nonzero_cols_mask);
   }
 
-  Eigen::VectorX<drake::symbolic::Variable>
-  FilterVariables(const Eigen::VectorX<drake::symbolic::Variable> &vars, const VectorXb &nonzero_cols_mask) {
-    Eigen::VectorX<drake::symbolic::Variable> vars_dense(nonzero_cols_mask.count());
+  drake::VectorX<drake::symbolic::Variable>
+  FilterVariables(const drake::VectorX<drake::symbolic::Variable> &vars, const VectorXb &nonzero_cols_mask) {
+    drake::VectorX<drake::symbolic::Variable> vars_dense(nonzero_cols_mask.count());
     int row = 0;
     for (int i = 0; i < vars.size(); ++i) {
       if (nonzero_cols_mask(i)) {
