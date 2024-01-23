@@ -150,7 +150,7 @@ namespace ps {
       /// Add the zero cost edges
       for (auto& edge : edges_between_regions) {
         if (data_.old_id_to_new_id_.find(edge) == data_.old_id_to_new_id_.end()) { continue; }
-        std::cout << "Edge: " << edge.first << " " << edge.second << std::endl;
+        std::cout << "Edge: " << edge.first << " " << edge.second << " pegs: " << data_.old_id_to_new_id_[edge].size() << std::endl;
         auto in_new_id = data_.old_id_to_new_id_[edge];
         auto out_new_id = data_.old_id_to_new_id_[edge];
 
