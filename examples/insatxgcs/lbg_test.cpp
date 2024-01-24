@@ -97,9 +97,9 @@ int main() {
 
   for (auto d : graph_dist) {
     if (d.second < 1e3) {
-//      std::cout << d.first << "\t" << d.second << std::endl;
+      std::cout << d.first << "\t" << d.second << std::endl;
     } else {
-//      std::cout << "> 1e3" << std::endl;
+      std::cout << d.first << "\t" << "> 1e3" << std::endl;
     }
   }
 

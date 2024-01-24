@@ -65,10 +65,9 @@ namespace ps {
 
     struct Data
     {
-//      std::unordered_map<int, std::vector<int>> old_id_to_new_id_;
       std::unordered_map<std::pair<int, int>, std::vector<int>, hash_pair> old_id_to_new_id_;
-      std::unordered_map<std::pair<int, int>, std::vector<int>, hash_pair> entry_id_;
-      std::unordered_map<std::pair<int, int>, std::vector<int>, hash_pair> exit_id_;
+//      std::unordered_map<std::pair<int, int>, std::vector<int>, hash_pair> entry_id_;
+//      std::unordered_map<std::pair<int, int>, std::vector<int>, hash_pair> exit_id_;
       std::unordered_map<int, std::vector<int>> lbg_adj_list_;
       std::unordered_map<int, std::vector<double>> lbg_adj_cost_list_;
     };
@@ -117,9 +116,11 @@ namespace ps {
         }
       }
 
-      std::cout << "LB edges: " << std::endl;
-      for (auto l : lbg_opt_edges_) {
-        std::cout << l[0] << " " << l[1] << " " << l[2] << std::endl;
+      if (verbose) {
+        std::cout << "LB edges: " << std::endl;
+        for (auto l: lbg_opt_edges_) {
+          std::cout << l[0] << " " << l[1] << " " << l[2] << std::endl;
+        }
       }
 
       int new_id = 0;
@@ -133,24 +134,29 @@ namespace ps {
         std::pair<int, int> nz_lb_edge = {in_id, out_id};
         /// Save the edges with costs
         lb_edge_to_costs_[nz_lb_edge] = cost;
-        /// Delete next two lines
-//            data_.old_id_to_new_id_[edge[0]].push_back(in_id);
-//            data_.old_id_to_new_id_[edge[2]].push_back(out_id);
 
         /// this works
         data_.old_id_to_new_id_[{edge[0], edge[1]}].push_back(in_id);
         data_.old_id_to_new_id_[{edge[1], edge[2]}].push_back(out_id);
 
-        /// keeping track of exits and entries separately
-        data_.entry_id_[{edge[0], edge[1]}].push_back(in_id);
-        data_.exit_id_[{edge[1], edge[2]}].push_back(out_id);
+//        /// keeping track of exits and entries separately
+//        data_.entry_id_[{edge[0], edge[1]}].push_back(in_id);
+//        data_.exit_id_[{edge[1], edge[2]}].push_back(out_id);
       }
 
       std::cout << "LB edge to cost: " << std::endl;
       /// Add the zero cost edges
       for (auto& edge : edges_between_regions) {
         if (data_.old_id_to_new_id_.find(edge) == data_.old_id_to_new_id_.end()) { continue; }
-        std::cout << "Edge: " << edge.first << " " << edge.second << " pegs: " << data_.old_id_to_new_id_[edge].size() << std::endl;
+
+        if (verbose) {
+          std::cout << "Edge: " << edge.first << " " << edge.second << " pegs: ";
+          for (auto peg: data_.old_id_to_new_id_[edge]) {
+            std::cout << " " << peg;
+          }
+          std::cout << std::endl;
+        }
+
         auto in_new_id = data_.old_id_to_new_id_[edge];
         auto out_new_id = data_.old_id_to_new_id_[edge];
 
@@ -173,6 +179,28 @@ namespace ps {
       for (auto& edge : lb_edge_to_costs_) {
         data_.lbg_adj_list_[edge.first.first].push_back(edge.first.second);
         data_.lbg_adj_cost_list_[edge.first.first].push_back(edge.second);
+      }
+
+      if (verbose) {
+        /// print adjacency list
+        std::cout << "LB Graph Adjacency List: " << std::endl;
+        for (auto &node: data_.lbg_adj_list_) {
+          std::cout << node.first << ": ";
+          for (auto &adj: node.second) {
+            std::cout << adj << " ";
+          }
+          std::cout << std::endl;
+        }
+
+        /// print cost list
+        std::cout << "LB Graph Cost List: " << std::endl;
+        for (auto &node: data_.lbg_adj_cost_list_) {
+          std::cout << node.first << ": ";
+          for (auto &adj: node.second) {
+            std::cout << adj << " ";
+          }
+          std::cout << std::endl;
+        }
       }
     }
 
@@ -326,12 +354,12 @@ namespace ps {
   public:
     const int INF = 1e9;
 
-    std::unordered_map<int, double> Dijkstra(const std::unordered_map<int, std::vector<int>>& graph,
+    std::map<int, double> Dijkstra(const std::unordered_map<int, std::vector<int>>& graph,
                                              const std::unordered_map<int, std::vector<double>>& costs,
                                              int start) {
 
       std::priority_queue<std::pair<double, int>, std::vector<std::pair<double, int>>, std::greater<std::pair<double, double>>> pq;
-      std::unordered_map<int, double> distance;
+      std::map<int, double> distance;
       for (const auto& node : graph) {
         distance[node.first] = INF;
       }
