@@ -37,6 +37,7 @@
 
 #include <planners/insat/opt/GCSOpt.hpp>
 #include <planners/insat/opt/GCSSmoothOpt.hpp>
+#include <common/Types.hpp>
 
 #include <sstream>
 #include <fstream>
@@ -70,6 +71,7 @@ namespace ps {
 //      std::unordered_map<std::pair<int, int>, std::vector<int>, hash_pair> exit_id_;
       std::unordered_map<int, std::vector<int>> lbg_adj_list_;
       std::unordered_map<int, std::vector<double>> lbg_adj_cost_list_;
+      std::unordered_map<int, std::vector<StateVarsType>> lbg_adj_state_list_;
     };
 
     LBGraph(const std::vector<HPolyhedron>& regions,
