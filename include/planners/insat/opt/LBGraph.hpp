@@ -42,6 +42,9 @@
 #include <sstream>
 #include <fstream>
 #include <queue>
+#include <utility>
+#include <boost/archive/text_iarchive.hpp>
+#include <boost/archive/text_oarchive.hpp>
 
 namespace ps {
 
@@ -67,12 +70,106 @@ namespace ps {
     struct Data
     {
       std::unordered_map<std::pair<int, int>, std::vector<int>, hash_pair> old_id_to_new_id_;
+      std::unordered_map<int, StateVarsType> new_id_to_state_;
+      std::unordered_map<int, std::vector<double>> lbg_adj_cost_list_;
+      std::unordered_map<int, std::vector<int>> lbg_adj_list_;
+
 //      std::unordered_map<std::pair<int, int>, std::vector<int>, hash_pair> entry_id_;
 //      std::unordered_map<std::pair<int, int>, std::vector<int>, hash_pair> exit_id_;
-      std::unordered_map<int, std::vector<int>> lbg_adj_list_;
-      std::unordered_map<int, std::vector<double>> lbg_adj_cost_list_;
-      std::unordered_map<int, std::vector<StateVarsType>> lbg_adj_state_list_;
-    };
+
+// Serialization function
+          void serialize(const Data &data, const std::string &filename)
+          {
+            std::ofstream outFile(filename);
+            if (!outFile.is_open())
+            {
+              std::cerr << "Error opening file for writing: " << filename << std::endl;
+              return;
+            }
+
+            // Serialize old_id_to_new_id_
+            outFile << data.old_id_to_new_id_.size() << "\n";
+            for (const auto &entry : data.old_id_to_new_id_)
+            {
+              outFile << entry.first.first << " " << entry.first.second << " " << entry.second.size();
+              for (int value : entry.second)
+              {
+                outFile << " " << value;
+              }
+              outFile << "\n";
+            }
+
+            // Serialize new_id_to_state_
+            outFile << data.new_id_to_state_.size() << "\n";
+            for (const auto &entry : data.new_id_to_state_)
+            {
+              outFile << entry.first << " " << entry.second.size();
+              for (double value : entry.second)
+              {
+                outFile << " " << value;
+              }
+              outFile << "\n";
+            }
+
+            // Serialize lbg_adj_cost_list_
+            // ... Similar process for other maps ...
+
+            outFile.close();
+          }
+
+// Deserialization function
+          void deserialize(Data &data, const std::string &filename)
+          {
+            std::ifstream inFile(filename);
+            if (!inFile.is_open())
+            {
+              std::cerr << "Error opening file for reading: " << filename << std::endl;
+              return;
+            }
+
+            // Deserialize old_id_to_new_id_
+            size_t oldIdToNewIdSize;
+            inFile >> oldIdToNewIdSize;
+            for (size_t i = 0; i < oldIdToNewIdSize; ++i)
+            {
+              std::pair<int, int> key;
+              size_t vectorSize;
+              inFile >> key.first >> key.second >> vectorSize;
+
+              std::vector<int> value(vectorSize);
+              for (size_t j = 0; j < vectorSize; ++j)
+              {
+                inFile >> value[j];
+              }
+
+              data.old_id_to_new_id_.emplace(std::move(key), std::move(value));
+            }
+
+            // Deserialize new_id_to_state_
+            size_t newIdToStateSize;
+            inFile >> newIdToStateSize;
+            for (size_t i = 0; i < newIdToStateSize; ++i)
+            {
+              int key;
+              size_t vectorSize;
+              inFile >> key >> vectorSize;
+
+              std::vector<double> value(vectorSize);
+              for (size_t j = 0; j < vectorSize; ++j)
+              {
+                inFile >> value[j];
+              }
+
+              data.new_id_to_state_.emplace(std::move(key), std::move(value));
+            }
+
+            // Deserialize lbg_adj_cost_list_
+            // ... Similar process for other maps ...
+
+            inFile.close();
+          }
+
+      };
 
     LBGraph(const std::vector<HPolyhedron>& regions,
             const std::vector<std::pair<int, int>>& edges_between_regions,
@@ -94,6 +191,7 @@ namespace ps {
                                         verbose);
         gcs_->FormulateAndSetCostsAndConstraints();
       }
+      verbose = true;
 
       /// Get the adjacency list of GCS graph
 //      std::unordered_map<int, std::vector<int>> adjacency_list_;
@@ -130,12 +228,21 @@ namespace ps {
       /// Save the edge if it is new or if the cost is lower
       /// Update the map from old id to new id
       for (auto& edge : lbg_opt_edges_) {
-        double cost = gcs_->LowerboundSolve(edge);
+        auto soln = gcs_->Solve(edge);
+        double cost = gcs_->CalculateCost(soln);
+
         int in_id = new_id++;
         int out_id = new_id++;
         std::pair<int, int> nz_lb_edge = {in_id, out_id};
         /// Save the edges with costs
         lb_edge_to_costs_[nz_lb_edge] = cost;
+        /// Save the new id with states
+        auto p0 = soln.first.value(soln.first.start_time());
+        auto pF = soln.first.value(soln.first.start_time());
+        std::vector<double> _p0(p0.data(), p0.data() + p0.size());
+        std::vector<double> _pF(p0.data(), p0.data() + p0.size());
+        data_.new_id_to_state_[in_id] = _p0;
+        data_.new_id_to_state_[out_id] = _pF;
 
         /// this works
         data_.old_id_to_new_id_[{edge[0], edge[1]}].push_back(in_id);
@@ -184,6 +291,17 @@ namespace ps {
       }
 
       if (verbose) {
+        /// print old id to new id
+        std::cout << "GCS graph ID to LBG ID: " << std::endl;
+        for (auto &node: data_.old_id_to_new_id_) {
+          std::cout << node.first.first << ", " << node.first.second << ": ";
+          for (auto &adj: node.second) {
+            std::cout << adj << " ";
+          }
+          std::cout << std::endl;
+        }
+
+
         /// print adjacency list
         std::cout << "LB Graph Adjacency List: " << std::endl;
         for (auto &node: data_.lbg_adj_list_) {
@@ -233,114 +351,6 @@ namespace ps {
       return "";
     }
 
-// Serialize Data to a file in ASCII format
-    void serializeToFile(const std::string& filePath) {
-      std::ofstream file(filePath);
-      if (file.is_open()) {
-        // Serialize data_.lbg_adj_list_
-        for (const auto& entry : data_.lbg_adj_list_) {
-          file << "adj " << entry.first << ':';
-
-          // Serialize the vector elements
-          for (int value : entry.second) {
-            file << value << ',';
-          }
-          file.seekp(-1, std::ios_base::end); // Remove the last comma
-          file << '\n';
-        }
-
-        // Serialize data_.lbg_adj_cost_list_
-        for (const auto& entry : data_.lbg_adj_cost_list_) {
-          file << "cost " << entry.first << ':';
-
-          // Serialize the vector elements
-          for (double value : entry.second) {
-            file << value << ',';
-          }
-          file.seekp(-1, std::ios_base::end); // Remove the last comma
-          file << '\n';
-        }
-
-        // Serialize data_.lbg_adj_cost_list_
-//        for (const auto& entry : data_.old_id_to_new_id_) {
-//          file << "idmap " << entry.first << ':';
-//
-//          // Serialize the vector elements
-//          for (int value : entry.second) {
-//            file << value << ',';
-//          }
-//          file.seekp(-1, std::ios_base::end); // Remove the last comma
-//          file << '\n';
-//        }
-
-        file.close();
-      } else {
-        std::cerr << "Error: Unable to open file for writing." << std::endl;
-      }
-    }
-
-// Deserialize Data from a file in ASCII format
-    Data deserializeFromFile(const std::string& filePath) {
-      Data data;
-      std::ifstream file(filePath);
-      if (file.is_open()) {
-        std::string line;
-        while (std::getline(file, line)) {
-          std::istringstream iss(line);
-          std::string mapType;
-          iss >> mapType;
-
-          int key;
-          char colon;
-          iss >> key >> colon;
-
-          // Deserialize vector elements
-          if (mapType == "adj") {
-            int value;
-            std::vector<int> values;
-            while (iss >> value) {
-              values.push_back(value);
-              char comma;
-              if (!(iss >> comma) || comma != ',') {
-                break;
-              }
-            }
-            data.lbg_adj_list_[key] = values;
-          } else if (mapType == "cost") {
-            double value;
-            std::vector<double> values;
-            while (iss >> value) {
-              values.push_back(value);
-              char comma;
-              if (!(iss >> comma) || comma != ',') {
-                break;
-              }
-            }
-            data.lbg_adj_cost_list_[key] = values;
-          }
-//          else if (mapType == "idmap") {
-//            int value;
-//            std::vector<int> values;
-//            while (iss >> value) {
-//              values.push_back(value);
-//              char comma;
-//              if (!(iss >> comma) || comma != ',') {
-//                break;
-//              }
-//            }
-//            data.old_id_to_new_id_[key] = values;
-//          }
-        }
-
-        file.close();
-      } else {
-        std::cerr << "Error: Unable to open file for reading." << std::endl;
-      }
-
-      return data;
-    }
-
-
 
     std::vector<HPolyhedron> hpoly_regions_;
     std::vector<std::pair<int, int>> edges_bw_regions_;
@@ -354,7 +364,9 @@ namespace ps {
 
   class LBGSearch {
   public:
-    const int INF = 1e9;
+
+    LBGSearch(std::string& lbg_file);
+
 
     std::map<int, double> Dijkstra(const std::unordered_map<int, std::vector<int>>& graph,
                                              const std::unordered_map<int, std::vector<double>>& costs,
@@ -363,7 +375,7 @@ namespace ps {
       std::priority_queue<std::pair<double, int>, std::vector<std::pair<double, int>>, std::greater<std::pair<double, double>>> pq;
       std::map<int, double> distance;
       for (const auto& node : graph) {
-        distance[node.first] = INF;
+        distance[node.first] = DINF;
       }
 
       distance[start] = 0.0;
@@ -390,6 +402,8 @@ namespace ps {
       }
       return distance;
     }
+
+    LBGraph::Data data_;
 
   };
 

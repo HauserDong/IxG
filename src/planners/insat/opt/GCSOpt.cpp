@@ -284,6 +284,16 @@ double ps::GCSOpt::LowerboundSolve(const std::vector<int>& path_ids) {
 }
 
 std::pair<drake::trajectories::CompositeTrajectory<double>,
+        drake::solvers::MathematicalProgramResult> ps::GCSOpt::Solve(std::vector<int>& path_ids) {
+  std::vector<VertexId> path_vids;
+  for (const auto& id : path_ids) {
+    path_vids.push_back(vertex_id_to_vertex_[id]->id());
+  }
+  auto soln = Solve(path_vids);
+  return soln;
+}
+
+std::pair<drake::trajectories::CompositeTrajectory<double>,
         drake::solvers::MathematicalProgramResult> ps::GCSOpt::Solve(std::vector<VertexId> &path_vids) {
   Eigen::VectorXd dummy_init_guess;
   assert(dummy_init_guess.size() == 0);
@@ -432,6 +442,28 @@ ps::GCSOpt::Solve(std::vector<VertexId>& path_vids,
   auto final_trajectory = drake::trajectories::CompositeTrajectory<double>(bezier_curves);
 
   return {final_trajectory, result};
+}
+
+double ps::GCSOpt::CalculateCost(
+        std::pair<drake::trajectories::CompositeTrajectory<double>, drake::solvers::MathematicalProgramResult>& soln) {
+
+  auto& traj = soln.first;
+  auto& result = soln.second;
+
+  if (!result.is_success()) {
+    return INFINITY;
+  } else {
+    auto p0 = traj.value(traj.start_time());
+    double dist = 0;
+    for (double t=traj.start_time(); t<=traj.end_time(); t+=1e-1) {
+      auto pt = traj.value(t);
+      dist += (pt-p0).norm();
+      p0 = pt;
+    }
+
+    return path_length_weight_(0,0)*dist + time_weight_*traj.end_time();
+  }
+  return INFINITY;
 }
 
 void ps::GCSOpt::CleanUp() {

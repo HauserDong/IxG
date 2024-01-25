@@ -94,6 +94,12 @@ namespace ps {
             drake::solvers::MathematicalProgramResult> Solve(std::vector<VertexId>& path_vids,
                                                              Eigen::VectorXd& initial_guess);
 
+    std::pair<drake::trajectories::CompositeTrajectory<double>,
+          drake::solvers::MathematicalProgramResult> Solve(std::vector<int>& path_ids);
+
+    double CalculateCost(std::pair<drake::trajectories::CompositeTrajectory<double>,
+            drake::solvers::MathematicalProgramResult>& soln);
+
     const std::shared_ptr<drake::geometry::optimization::GraphOfConvexSets> GetGCS() const {
       return gcs_;
     }
