@@ -71,8 +71,8 @@ namespace ps {
     {
       std::unordered_map<std::pair<int, int>, std::vector<int>, hash_pair> old_id_to_new_id_;
       std::unordered_map<int, StateVarsType> new_id_to_state_;
-      std::unordered_map<int, std::vector<double>> lbg_adj_cost_list_;
       std::unordered_map<int, std::vector<int>> lbg_adj_list_;
+      std::unordered_map<int, std::vector<double>> lbg_adj_cost_list_;
 
 //      std::unordered_map<std::pair<int, int>, std::vector<int>, hash_pair> entry_id_;
 //      std::unordered_map<std::pair<int, int>, std::vector<int>, hash_pair> exit_id_;
@@ -111,8 +111,29 @@ namespace ps {
               outFile << "\n";
             }
 
+            // Serialize lbg_adj_list_
+            outFile << data.lbg_adj_list_.size() << "\n";
+            for (const auto &entry : data.lbg_adj_list_)
+            {
+              outFile << entry.first << " " << entry.second.size();
+              for (int value : entry.second)
+              {
+                outFile << " " << value;
+              }
+              outFile << "\n";
+            }
+
             // Serialize lbg_adj_cost_list_
-            // ... Similar process for other maps ...
+            outFile << data.lbg_adj_cost_list_.size() << "\n";
+            for (const auto &entry : data.lbg_adj_cost_list_)
+            {
+              outFile << entry.first << " " << entry.second.size();
+              for (double value : entry.second)
+              {
+                outFile << " " << value;
+              }
+              outFile << "\n";
+            }
 
             outFile.close();
           }
@@ -163,15 +184,49 @@ namespace ps {
               data.new_id_to_state_.emplace(std::move(key), std::move(value));
             }
 
+            // Deserialize lbg_adj_list_
+            size_t lbgAdjListSize;
+            inFile >> lbgAdjListSize;
+            for (size_t i = 0; i < lbgAdjListSize; ++i)
+            {
+              int key;
+              size_t vectorSize;
+              inFile >> key >> vectorSize;
+
+              std::vector<int> value(vectorSize);
+              for (size_t j = 0; j < vectorSize; ++j)
+              {
+                inFile >> value[j];
+              }
+
+              data.lbg_adj_list_.emplace(std::move(key), std::move(value));
+            }
+
             // Deserialize lbg_adj_cost_list_
-            // ... Similar process for other maps ...
+            size_t lbgAdjCostListSize;
+            inFile >> lbgAdjCostListSize;
+            for (size_t i = 0; i < lbgAdjCostListSize; ++i)
+            {
+              int key;
+              size_t vectorSize;
+              inFile >> key >> vectorSize;
+
+              std::vector<double> value(vectorSize);
+              for (size_t j = 0; j < vectorSize; ++j)
+              {
+                inFile >> value[j];
+              }
+
+              data.lbg_adj_cost_list_.emplace(std::move(key), std::move(value));
+            }
 
             inFile.close();
           }
 
       };
 
-    LBGraph(const std::vector<HPolyhedron>& regions,
+    LBGraph(std::string& env_name,
+            const std::vector<HPolyhedron>& regions,
             const std::vector<std::pair<int, int>>& edges_between_regions,
             int order, int continuity,
             double path_length_weight, double time_weight,
@@ -210,10 +265,10 @@ namespace ps {
             lbg_opt_edges_.push_back({out.second[w], ctr, out.second[v]});
           }
         }
-        temp++;
-        if (temp > 3) {
-          break;
-        }
+//        temp++;
+//        if (temp > 3) {
+//          break;
+//        }
       }
 
       if (verbose) {
@@ -365,20 +420,36 @@ namespace ps {
   class LBGSearch {
   public:
 
-    LBGSearch(std::string& lbg_file);
+    LBGSearch() {}
+    LBGSearch(std::string& lbg_file) {}
 
 
     std::map<int, double> Dijkstra(const std::unordered_map<int, std::vector<int>>& graph,
                                              const std::unordered_map<int, std::vector<double>>& costs,
-                                             int start) {
+                                             StateVarsType& start_state,
+                                             int gcs_start_id) {
 
-      std::priority_queue<std::pair<double, int>, std::vector<std::pair<double, int>>, std::greater<std::pair<double, double>>> pq;
-      std::map<int, double> distance;
-      for (const auto& node : graph) {
-        distance[node.first] = DINF;
+      int start = 2*data_.new_id_to_state_.size();
+      VecDf e_start_state = Eigen::Map<VecDf, Eigen::Unaligned>(start_state.data(), start_state.size());
+
+      for (const auto& otn : data_.old_id_to_new_id_) {
+        if (otn.first.first == gcs_start_id) {
+          for (const auto& c : otn.second) {
+            data_.lbg_adj_list_[start].push_back(c);
+            VecDf e_new_state = Eigen::Map<VecDf, Eigen::Unaligned>(data_.new_id_to_state_[c].data(), data_.new_id_to_state_[c].size());
+            double cost = (e_new_state - e_start_state).norm();
+            data_.lbg_adj_cost_list_[start].push_back(cost);
+          }
+        }
       }
 
-      distance[start] = 0.0;
+      std::priority_queue<std::pair<double, int>, std::vector<std::pair<double, int>>, std::greater<std::pair<double, double>>> pq;
+      std::map<int, double> new_dist;
+      for (const auto& node : graph) {
+        new_dist[node.first] = DINF;
+      }
+
+      new_dist[start] = 0.0;
       pq.push({0.0, start});
 
       while (!pq.empty()) {
@@ -386,7 +457,7 @@ namespace ps {
         int dist_u = pq.top().first;
         pq.pop();
 
-        if (dist_u > distance[u]) {
+        if (dist_u > new_dist[u]) {
           continue; // Skip outdated entries in priority queue
         }
 
@@ -394,13 +465,27 @@ namespace ps {
           int v = graph.at(u)[i];
           double weight = costs.at(u)[i];
 
-          if (distance[u] + weight < distance[v]) {
-            distance[v] = distance[u] + weight;
-            pq.emplace(distance[v], v);
+          if (new_dist[u] + weight < new_dist[v]) {
+            new_dist[v] = new_dist[u] + weight;
+            pq.emplace(new_dist[v], v);
           }
         }
       }
-      return distance;
+
+      std::map<int, double> old_dist;
+      for (const auto& otn : data_.old_id_to_new_id_) {
+        double d = DINF/2;
+        for (const auto n : otn.second) {
+          if (new_dist.find(n) != new_dist.end()) {
+            if (new_dist[n] < d) {
+              d = new_dist[n];
+            }
+          }
+        }
+        old_dist[otn.first.first] = d; /// @FIXME: Is this correct?
+      }
+
+      return old_dist;
     }
 
     LBGraph::Data data_;

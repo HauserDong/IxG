@@ -48,7 +48,7 @@ int main() {
   setenv("MOSEKLM_LICENSE_FILE", "/home/gaussian/Documents/softwares/mosektoolslinux64x86/mosek.lic", true);
   auto lic = drake::solvers::MosekSolver::AcquireLicense();
 
-
+  std::string env_name = "maze2d";
   std::vector<HPolyhedron> regions = utils::DeserializeRegions("/home/gaussian/cmu_ri_phd/phd_research/temp_INSATxGCS/INSATxGCS-Planner/src/data/maze.csv");
   auto edges_bw_regions = utils::DeserializeEdges("/home/gaussian/cmu_ri_phd/phd_research/temp_INSATxGCS/INSATxGCS-Planner/src/data/maze_edges.csv");
 
@@ -63,7 +63,7 @@ int main() {
   Eigen::VectorXd vel_ub = 5 * Eigen::VectorXd::Ones(num_positions);
   bool verbose = false;
 
-  LBGraph lbg(regions, *edges_bw_regions,
+  LBGraph lbg(env_name, regions, *edges_bw_regions,
              order, continuity,
              path_len_weight, time_weight,
              vel_lb, vel_ub,
