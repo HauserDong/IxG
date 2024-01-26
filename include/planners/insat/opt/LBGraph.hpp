@@ -74,22 +74,24 @@ namespace ps {
       std::unordered_map<int, std::vector<int>> lbg_adj_list_;
       std::unordered_map<int, std::vector<double>> lbg_adj_cost_list_;
 
+      std::string filename_;
+
 //      std::unordered_map<std::pair<int, int>, std::vector<int>, hash_pair> entry_id_;
 //      std::unordered_map<std::pair<int, int>, std::vector<int>, hash_pair> exit_id_;
 
 // Serialization function
-          void serialize(const Data &data, const std::string &filename)
+          void serialize(std::string& fname)
           {
-            std::ofstream outFile(filename);
+            std::ofstream outFile(fname);
             if (!outFile.is_open())
             {
-              std::cerr << "Error opening file for writing: " << filename << std::endl;
+              std::cerr << "Error opening file for writing: " << fname << std::endl;
               return;
             }
 
             // Serialize old_id_to_new_id_
-            outFile << data.old_id_to_new_id_.size() << "\n";
-            for (const auto &entry : data.old_id_to_new_id_)
+            outFile << old_id_to_new_id_.size() << "\n";
+            for (const auto &entry : old_id_to_new_id_)
             {
               outFile << entry.first.first << " " << entry.first.second << " " << entry.second.size();
               for (int value : entry.second)
@@ -100,8 +102,8 @@ namespace ps {
             }
 
             // Serialize new_id_to_state_
-            outFile << data.new_id_to_state_.size() << "\n";
-            for (const auto &entry : data.new_id_to_state_)
+            outFile << new_id_to_state_.size() << "\n";
+            for (const auto &entry : new_id_to_state_)
             {
               outFile << entry.first << " " << entry.second.size();
               for (double value : entry.second)
@@ -112,8 +114,8 @@ namespace ps {
             }
 
             // Serialize lbg_adj_list_
-            outFile << data.lbg_adj_list_.size() << "\n";
-            for (const auto &entry : data.lbg_adj_list_)
+            outFile << lbg_adj_list_.size() << "\n";
+            for (const auto &entry : lbg_adj_list_)
             {
               outFile << entry.first << " " << entry.second.size();
               for (int value : entry.second)
@@ -124,8 +126,8 @@ namespace ps {
             }
 
             // Serialize lbg_adj_cost_list_
-            outFile << data.lbg_adj_cost_list_.size() << "\n";
-            for (const auto &entry : data.lbg_adj_cost_list_)
+            outFile << lbg_adj_cost_list_.size() << "\n";
+            for (const auto &entry : lbg_adj_cost_list_)
             {
               outFile << entry.first << " " << entry.second.size();
               for (double value : entry.second)
@@ -139,12 +141,12 @@ namespace ps {
           }
 
 // Deserialization function
-          void deserialize(Data &data, const std::string &filename)
+          void deserialize(std::string& fname)
           {
-            std::ifstream inFile(filename);
+            std::ifstream inFile(fname);
             if (!inFile.is_open())
             {
-              std::cerr << "Error opening file for reading: " << filename << std::endl;
+              std::cerr << "Error opening file for reading: " << fname << std::endl;
               return;
             }
 
@@ -163,7 +165,7 @@ namespace ps {
                 inFile >> value[j];
               }
 
-              data.old_id_to_new_id_.emplace(std::move(key), std::move(value));
+              old_id_to_new_id_.emplace(std::move(key), std::move(value));
             }
 
             // Deserialize new_id_to_state_
@@ -181,7 +183,7 @@ namespace ps {
                 inFile >> value[j];
               }
 
-              data.new_id_to_state_.emplace(std::move(key), std::move(value));
+              new_id_to_state_.emplace(std::move(key), std::move(value));
             }
 
             // Deserialize lbg_adj_list_
@@ -199,7 +201,7 @@ namespace ps {
                 inFile >> value[j];
               }
 
-              data.lbg_adj_list_.emplace(std::move(key), std::move(value));
+              lbg_adj_list_.emplace(std::move(key), std::move(value));
             }
 
             // Deserialize lbg_adj_cost_list_
@@ -217,7 +219,7 @@ namespace ps {
                 inFile >> value[j];
               }
 
-              data.lbg_adj_cost_list_.emplace(std::move(key), std::move(value));
+              lbg_adj_cost_list_.emplace(std::move(key), std::move(value));
             }
 
             inFile.close();
@@ -233,6 +235,7 @@ namespace ps {
             Eigen::VectorXd& vel_lb, Eigen::VectorXd& vel_ub,
             double h_min, double h_max, double hdot_min = 1e-6,
             bool smooth = false,
+            std::string lbg_dir = "",
             bool verbose=false) : hpoly_regions_(regions),
                                   edges_bw_regions_(edges_between_regions) {
 
@@ -246,9 +249,24 @@ namespace ps {
                                         verbose);
         gcs_->FormulateAndSetCostsAndConstraints();
       }
-      verbose = true;
+//      verbose = true;
 
-      /// Get the adjacency list of GCS graph
+      data_.filename_ = env_name +
+                        "_o" + std::to_string(order) +
+                        "_c" + std::to_string(continuity) +
+                        "_pw" + std::to_string((int)path_length_weight) +
+                        "_tw" + std::to_string((int)time_weight) +
+                        "_hmin" + std::to_string((int)h_min) +
+                        "_hmax" + std::to_string((int)h_max) +
+                        "_hdmin" + std::to_string((int)hdot_min) +
+                        "_sm" + std::to_string(smooth? 1: 0);
+
+      std::string filename = lbg_dir + data_.filename_;
+      if (Load(filename)) {
+        return;
+      }
+
+        /// Get the adjacency list of GCS graph
 //      std::unordered_map<int, std::vector<int>> adjacency_list_;
       std::map<int, std::vector<int>> adjacency_list_;
       for (auto& edge : edges_between_regions) {
@@ -266,9 +284,7 @@ namespace ps {
           }
         }
 //        temp++;
-//        if (temp > 3) {
-//          break;
-//        }
+//        if (temp > 3) {break;}
       }
 
       if (verbose) {
@@ -345,6 +361,9 @@ namespace ps {
         data_.lbg_adj_cost_list_[edge.first.first].push_back(edge.second);
       }
 
+      /// Write to file
+      Save(filename);
+
       if (verbose) {
         /// print old id to new id
         std::cout << "GCS graph ID to LBG ID: " << std::endl;
@@ -387,6 +406,23 @@ namespace ps {
       return data_.lbg_adj_cost_list_;
     }
 
+    void Save(std::string& filename) {
+      data_.serialize(filename);
+    }
+
+    bool Load(std::string& filename) {
+      std::cout << "Looking for file " << filename << std::endl;
+      std::ifstream inFile(filename);
+      if (inFile.is_open()) {
+        data_.deserialize(filename);
+        std::cout << "Loaded Lower Bound Graph from file! So not constructing one." << std::endl;
+        return true;
+      } else {
+        std::cout << "No existing file found. Constructing Lower Bound Graph!" << std::endl;
+        return false;
+      }
+    }
+
     void PrintLBGraphStats() const {
       int degree = 0;
       int num_edges = 0;
@@ -402,11 +438,6 @@ namespace ps {
       std::cout << "Degree: " << degree << std::endl;
     }
 
-    std::string createFileName() {
-      return "";
-    }
-
-
     std::vector<HPolyhedron> hpoly_regions_;
     std::vector<std::pair<int, int>> edges_bw_regions_;
     std::shared_ptr<GCSOpt> gcs_;
@@ -421,12 +452,12 @@ namespace ps {
   public:
 
     LBGSearch() {}
-    LBGSearch(std::string& lbg_file) {}
+    LBGSearch(std::string& lbg_file) {
+      data_.deserialize(lbg_file);
+    }
 
 
-    std::map<int, double> Dijkstra(const std::unordered_map<int, std::vector<int>>& graph,
-                                             const std::unordered_map<int, std::vector<double>>& costs,
-                                             StateVarsType& start_state,
+    std::map<int, double> Dijkstra(StateVarsType& start_state,
                                              int gcs_start_id) {
 
       int start = 2*data_.new_id_to_state_.size();
@@ -445,7 +476,7 @@ namespace ps {
 
       std::priority_queue<std::pair<double, int>, std::vector<std::pair<double, int>>, std::greater<std::pair<double, double>>> pq;
       std::map<int, double> new_dist;
-      for (const auto& node : graph) {
+      for (const auto& node : data_.lbg_adj_list_) {
         new_dist[node.first] = DINF;
       }
 
@@ -461,9 +492,9 @@ namespace ps {
           continue; // Skip outdated entries in priority queue
         }
 
-        for (int i=0; i<graph.at(u).size(); ++i) {
-          int v = graph.at(u)[i];
-          double weight = costs.at(u)[i];
+        for (int i=0; i<data_.lbg_adj_list_.at(u).size(); ++i) {
+          int v = data_.lbg_adj_list_.at(u)[i];
+          double weight = data_.lbg_adj_cost_list_.at(u)[i];
 
           if (new_dist[u] + weight < new_dist[v]) {
             new_dist[v] = new_dist[u] + weight;

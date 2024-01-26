@@ -51,6 +51,8 @@ int main() {
   std::string env_name = "maze2d";
   std::vector<HPolyhedron> regions = utils::DeserializeRegions("/home/gaussian/cmu_ri_phd/phd_research/temp_INSATxGCS/INSATxGCS-Planner/src/data/maze.csv");
   auto edges_bw_regions = utils::DeserializeEdges("/home/gaussian/cmu_ri_phd/phd_research/temp_INSATxGCS/INSATxGCS-Planner/src/data/maze_edges.csv");
+  std::string lbg_dir = "../examples/insatxgcs/resources/" + env_name + "/lbg/";
+  std::string lbg_file = lbg_dir + "maze2d_o2_c1_pw1_tw0_hmin0_hmax1_hdmin0_sm0";
 
   int num_positions = 2;
   int order = 2;
@@ -61,36 +63,29 @@ int main() {
   double time_weight = 0;
   Eigen::VectorXd vel_lb = -5 * Eigen::VectorXd::Ones(num_positions);
   Eigen::VectorXd vel_ub = 5 * Eigen::VectorXd::Ones(num_positions);
+  double hdot_min = 1e-6;
+  bool smooth = false;
   bool verbose = false;
 
   LBGraph lbg(env_name, regions, *edges_bw_regions,
-             order, continuity,
-             path_len_weight, time_weight,
-             vel_lb, vel_ub,
-              h_min, h_max);
+              order, continuity,
+              path_len_weight, time_weight,
+              vel_lb, vel_ub,
+              h_min, h_max, hdot_min,
+              smooth, lbg_dir);
 
   lbg.PrintLBGraphStats();
   auto graph = lbg.GetLBAdjacencyList();
   auto costs = lbg.GetLBAdjacencyCostList();
 
-  int start_id = 3;
+  int gcs_start_id = 3;
+  auto start_state = regions[gcs_start_id].ChebyshevCenter();
+  std::vector start(start_state.data(), start_state.data() + start_state.size());
 
-//  int id = start_id;
-//  std::priority_queue<int> pq;
-//  pq.push(id);
-//  while(!pq.empty()) {
-//    id = pq.top();
-//    std::cout << "Adjacency of state id: " << id << " is " << graph[id].size() << std::endl;
-//    pq.pop();
-//    for (auto g : graph[id]) {
-//      pq.push(g);
-//    }
-//  }
-
-  LBGSearch search;
+  LBGSearch search(lbg_file);
 
   auto start_time = std::chrono::high_resolution_clock::now();
-  auto graph_dist = search.Dijkstra(graph, costs, start_id);
+  auto graph_dist = search.Dijkstra(start, gcs_start_id);
   auto end_time = std::chrono::high_resolution_clock::now();
 
   std::cout << "Dijkstra took " << std::chrono::duration_cast<std::chrono::nanoseconds>(end_time - start_time).count()/1e9 << "s" << std::endl;
