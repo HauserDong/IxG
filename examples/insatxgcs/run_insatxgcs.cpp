@@ -270,16 +270,17 @@ int main(int argc, char* argv[])
   string planner_name = argv[1];
 
 
-//  std::vector<HPolyhedron> regions = utils::DeserializeRegions("../examples/insatxgcs/resources/maze2d/maze.csv");
-//  auto edges_bw_regions = utils::DeserializeEdges("../examples/insatxgcs/resources/maze2d/maze_edges.csv");
-  std::vector<HPolyhedron> regions = utils::DeserializeRegions("../examples/insatxgcs/resources/3hc10dtp/regions.csv");
-  auto edges_bw_regions = utils::DeserializeEdges("../examples/insatxgcs/resources/3hc10dtp/pruned_edges_8.csv");
+  std::vector<HPolyhedron> regions = utils::DeserializeRegions("../examples/insatxgcs/resources/maze2d/maze.csv");
+  auto edges_bw_regions = utils::DeserializeEdges("../examples/insatxgcs/resources/maze2d/maze_edges.csv");
+//  std::vector<HPolyhedron> regions = utils::DeserializeRegions("../examples/insatxgcs/resources/3hc10dtp/regions.csv");
+//  auto edges_bw_regions = utils::DeserializeEdges("../examples/insatxgcs/resources/3hc10dtp/pruned_edges_8.csv");
 
-//  int num_positions = 2;
-  int num_positions = 18;
+  int num_positions = 2;
+//  int num_positions = 18;
   rm::dof = num_positions;
   int order = 1;
-  double h_min = 1e-2;
+  int continuity = 1;
+  double h_min = 1e-3;
   double h_max = 1;
   double path_len_weight = 1;
   double time_weight = 0;
@@ -296,7 +297,7 @@ int main(int argc, char* argv[])
   // Define planner parameters
   ParamsType planner_params;
   planner_params["num_threads"] = num_threads;
-  planner_params["heuristic_weight"] = 50;
+  planner_params["heuristic_weight"] = 20;
   planner_params["timeout"] = 150;
   planner_params["num_positions"] = num_positions;
   planner_params["order"] = order;
@@ -335,10 +336,10 @@ int main(int argc, char* argv[])
   std::vector<vector<double>> starts, goals;
   if (load_starts_goals_from_file)
   {
-//    std::string starts_path = "../examples/insatxgcs/resources/maze2d/starts1.txt";
-//    std::string goals_path = "../examples/insatxgcs/resources/maze2d/goals1.txt";
-    std::string starts_path = "../examples/insatxgcs/resources/3hc10dtp/far_starts.txt";
-    std::string goals_path = "../examples/insatxgcs/resources/3hc10dtp/far_goals.txt";
+    std::string starts_path = "../examples/insatxgcs/resources/maze2d/starts1.txt";
+    std::string goals_path = "../examples/insatxgcs/resources/maze2d/goals1.txt";
+//    std::string starts_path = "../examples/insatxgcs/resources/3hc10dtp/far_starts.txt";
+//    std::string goals_path = "../examples/insatxgcs/resources/3hc10dtp/far_goals.txt";
     loadStartsAndGoalsFromFile(starts, goals, starts_path, goals_path);
   }
 
@@ -351,7 +352,8 @@ int main(int argc, char* argv[])
   vector<double> all_execution_time;
 
   /// save logs
-  std::string env_name = "3hc10dtp";
+  std::string env_name = "maze2d";
+//  std::string env_name = "3hc10dtp";
   MatDf start_log, goal_log, traj_log;
   std::string traj_path ="../logs/" + planner_name +"_" + env_name + "_traj.txt";
   std::string starts_path ="../logs/" + planner_name + "_" + env_name + "_starts.txt";
@@ -381,8 +383,8 @@ int main(int argc, char* argv[])
   vector<vector<PlanElement>> plan_vec;
 
   int run_offset = 0;
-//  num_runs = starts.size();
-  num_runs = 13;
+  num_runs = starts.size();
+//  num_runs = 13;
   for (int run = run_offset; run < run_offset+num_runs; ++run)
   {
     /// Set start and goal
@@ -407,16 +409,16 @@ int main(int argc, char* argv[])
     lb_opt.FormulateAndSetCostsAndConstraints();
 
     StateVarsType start;
-    start.push_back(start_vid.get_value());
+    start.push_back(start_vid.get_value()-1);
     rm::goal.clear();
-    rm::goal.push_back(goal_vid.get_value());
+    rm::goal.push_back(goal_vid.get_value()-1);
     rm::goal_value = goal_vec;
 
     // Get GCS edges and calculate graph degree
     const auto& gcs_edges = opt.GetGCS()->Edges();
     std::unordered_map<int, std::vector<int>> state_id_to_succ_id_;
     for (auto& e : gcs_edges) {
-      state_id_to_succ_id_[e->u().id().get_value()].push_back(e->v().id().get_value());
+      state_id_to_succ_id_[e->u().id().get_value()-1].push_back(e->v().id().get_value()-1);
     }
     int graph_degree = 0;
     for (auto& sid : state_id_to_succ_id_) {
@@ -468,12 +470,12 @@ int main(int argc, char* argv[])
     std::cout << "start: ";
     for (double i: starts[run])
       std::cout << i << ' ';
-    std::cout << "start VId: " << start_vid.get_value();
+    std::cout << "start VId: " << start_vid.get_value()-1;
     std::cout << std::endl;
     std::cout << "goal: ";
     for (double i: goals[run])
       std::cout << i << ' ';
-    std::cout << "goal VId: " << goal_vid.get_value();
+    std::cout << "goal VId: " << goal_vid.get_value()-1;
     std::cout << std::endl;
 
 

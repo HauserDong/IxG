@@ -46,7 +46,7 @@ namespace ps
   {
     const auto& edges_between_regions = (*opt_)[0].GetGCS()->Edges();
     for (auto& e : edges_between_regions) {
-      adjacency_list_[e->u().id().get_value()].push_back(e->v().id().get_value());
+      adjacency_list_[e->u().id().get_value()-1].push_back(e->v().id().get_value()-1);
     }
     path_length_weight_ = params_["path_length_weight"];
     time_weight_ = params_["time_weight"];
@@ -86,7 +86,7 @@ namespace ps
     adjacency_list_.clear();
     const auto& edges_between_regions = (*opt_)[0].GetGCS()->Edges();
     for (auto& e : edges_between_regions) {
-      adjacency_list_[static_cast<int>(e->u().id().get_value())].push_back(static_cast<int>(e->v().id().get_value()));
+      adjacency_list_[static_cast<int>(e->u().id().get_value()-1)].push_back(static_cast<int>(e->v().id().get_value()-1));
     }
   }
 

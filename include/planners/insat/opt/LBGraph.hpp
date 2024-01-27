@@ -350,7 +350,11 @@ namespace ps {
             if (lb_edge_to_costs_.find(zero_lb_edge) != lb_edge_to_costs_.end()) {
               throw std::runtime_error("Zero LB found!!");
             }
-            lb_edge_to_costs_[zero_lb_edge] = 0.0;
+//            lb_edge_to_costs_[zero_lb_edge] = 0.0;
+
+            VecDf s1 = Eigen::Map<VecDf, Eigen::Unaligned>(data_.new_id_to_state_[in].data(), data_.new_id_to_state_[in].size());
+            VecDf s2 = Eigen::Map<VecDf, Eigen::Unaligned>(data_.new_id_to_state_[out].data(), data_.new_id_to_state_[out].size());
+            lb_edge_to_costs_[zero_lb_edge] = (s1-s2).norm();
           }
         }
       }
