@@ -69,7 +69,8 @@ namespace ps {
 
     struct Data
     {
-      std::unordered_map<std::pair<int, int>, std::vector<int>, hash_pair> old_id_to_new_id_;
+      std::unordered_map<std::pair<int, int>, std::vector<int>, hash_pair> old_edge_to_new_id_;
+      std::unordered_map<int, std::vector<int>> old_id_to_new_id_;
       std::unordered_map<int, StateVarsType> new_id_to_state_;
       std::unordered_map<int, std::vector<int>> lbg_adj_list_;
       std::unordered_map<int, std::vector<double>> lbg_adj_cost_list_;
@@ -89,11 +90,23 @@ namespace ps {
               return;
             }
 
+            // Serialize old_edge_to_new_id_
+            outFile << old_edge_to_new_id_.size() << "\n";
+            for (const auto &entry : old_edge_to_new_id_)
+            {
+              outFile << entry.first.first << " " << entry.first.second << " " << entry.second.size();
+              for (int value : entry.second)
+              {
+                outFile << " " << value;
+              }
+              outFile << "\n";
+            }
+
             // Serialize old_id_to_new_id_
             outFile << old_id_to_new_id_.size() << "\n";
             for (const auto &entry : old_id_to_new_id_)
             {
-              outFile << entry.first.first << " " << entry.first.second << " " << entry.second.size();
+              outFile << entry.first << " " << entry.second.size();
               for (int value : entry.second)
               {
                 outFile << " " << value;
@@ -150,10 +163,10 @@ namespace ps {
               return;
             }
 
-            // Deserialize old_id_to_new_id_
-            size_t oldIdToNewIdSize;
-            inFile >> oldIdToNewIdSize;
-            for (size_t i = 0; i < oldIdToNewIdSize; ++i)
+            // Deserialize old_edge_to_new_id_
+            size_t oldEdgeToNewIdSize;
+            inFile >> oldEdgeToNewIdSize;
+            for (size_t i = 0; i < oldEdgeToNewIdSize; ++i)
             {
               std::pair<int, int> key;
               size_t vectorSize;
@@ -165,8 +178,27 @@ namespace ps {
                 inFile >> value[j];
               }
 
+              old_edge_to_new_id_.emplace(std::move(key), std::move(value));
+            }
+
+            // Deserialize old_id_to_new_id_
+            size_t oldIdToNewIdSize;
+            inFile >> oldIdToNewIdSize;
+            for (size_t i = 0; i < oldIdToNewIdSize; ++i)
+            {
+              int key;
+              size_t vectorSize;
+              inFile >> key >> vectorSize;
+
+              std::vector<int> value(vectorSize);
+              for (size_t j = 0; j < vectorSize; ++j)
+              {
+                inFile >> value[j];
+              }
+
               old_id_to_new_id_.emplace(std::move(key), std::move(value));
             }
+
 
             // Deserialize new_id_to_state_
             size_t newIdToStateSize;
@@ -316,9 +348,11 @@ namespace ps {
         data_.new_id_to_state_[out_id] = _pF;
 
         /// this works
-        data_.old_id_to_new_id_[{edge[0], edge[1]}].push_back(in_id);
-        data_.old_id_to_new_id_[{edge[1], edge[2]}].push_back(out_id);
+        data_.old_edge_to_new_id_[{edge[0], edge[1]}].push_back(in_id);
+        data_.old_edge_to_new_id_[{edge[1], edge[2]}].push_back(out_id);
 
+        data_.old_id_to_new_id_[edge[1]].push_back(in_id);
+        data_.old_id_to_new_id_[edge[1]].push_back(out_id);
 //        /// keeping track of exits and entries separately
 //        data_.entry_id_[{edge[0], edge[1]}].push_back(in_id);
 //        data_.exit_id_[{edge[1], edge[2]}].push_back(out_id);
@@ -327,18 +361,18 @@ namespace ps {
       std::cout << "LB edge to cost: " << std::endl;
       /// Add the zero cost edges
       for (auto& edge : edges_between_regions) {
-        if (data_.old_id_to_new_id_.find(edge) == data_.old_id_to_new_id_.end()) { continue; }
+        if (data_.old_edge_to_new_id_.find(edge) == data_.old_edge_to_new_id_.end()) { continue; }
 
         if (verbose) {
           std::cout << "Edge: " << edge.first << " " << edge.second << " pegs: ";
-          for (auto peg: data_.old_id_to_new_id_[edge]) {
+          for (auto peg: data_.old_edge_to_new_id_[edge]) {
             std::cout << " " << peg;
           }
           std::cout << std::endl;
         }
 
-        auto in_new_id = data_.old_id_to_new_id_[edge];
-        auto out_new_id = data_.old_id_to_new_id_[edge];
+        auto in_new_id = data_.old_edge_to_new_id_[edge];
+        auto out_new_id = data_.old_edge_to_new_id_[edge];
 
 //        auto in_new_id = data_.entry_id_[edge];
 //        auto out_new_id = data_.exit_id_[edge];
@@ -350,11 +384,11 @@ namespace ps {
             if (lb_edge_to_costs_.find(zero_lb_edge) != lb_edge_to_costs_.end()) {
               throw std::runtime_error("Zero LB found!!");
             }
-//            lb_edge_to_costs_[zero_lb_edge] = 0.0;
+            lb_edge_to_costs_[zero_lb_edge] = 0.0;
 
-            VecDf s1 = Eigen::Map<VecDf, Eigen::Unaligned>(data_.new_id_to_state_[in].data(), data_.new_id_to_state_[in].size());
-            VecDf s2 = Eigen::Map<VecDf, Eigen::Unaligned>(data_.new_id_to_state_[out].data(), data_.new_id_to_state_[out].size());
-            lb_edge_to_costs_[zero_lb_edge] = (s1-s2).norm();
+//            VecDf s1 = Eigen::Map<VecDf, Eigen::Unaligned>(data_.new_id_to_state_[in].data(), data_.new_id_to_state_[in].size());
+//            VecDf s2 = Eigen::Map<VecDf, Eigen::Unaligned>(data_.new_id_to_state_[out].data(), data_.new_id_to_state_[out].size());
+//            lb_edge_to_costs_[zero_lb_edge] = (s1-s2).norm();
           }
         }
       }
@@ -371,7 +405,7 @@ namespace ps {
       if (verbose) {
         /// print old id to new id
         std::cout << "GCS graph ID to LBG ID: " << std::endl;
-        for (auto &node: data_.old_id_to_new_id_) {
+        for (auto &node: data_.old_edge_to_new_id_) {
           std::cout << node.first.first << ", " << node.first.second << ": ";
           for (auto &adj: node.second) {
             std::cout << adj << " ";
@@ -467,7 +501,7 @@ namespace ps {
       int start = 2*data_.new_id_to_state_.size();
       VecDf e_start_state = Eigen::Map<VecDf, Eigen::Unaligned>(start_state.data(), start_state.size());
 
-      for (const auto& otn : data_.old_id_to_new_id_) {
+      for (const auto& otn : data_.old_edge_to_new_id_) {
         if (otn.first.first == gcs_start_id) {
           for (const auto& c : otn.second) {
             data_.lbg_adj_list_[start].push_back(c);
@@ -508,7 +542,7 @@ namespace ps {
       }
 
       std::map<int, double> old_dist;
-      for (const auto& otn : data_.old_id_to_new_id_) {
+      for (const auto& otn : data_.old_edge_to_new_id_) {
         double d = DINF/2;
         for (const auto n : otn.second) {
           if (new_dist.find(n) != new_dist.end()) {
@@ -519,6 +553,38 @@ namespace ps {
         }
         old_dist[otn.first.first] = d; /// @FIXME: Is this correct?
       }
+
+//      std::map<int, double> old_dist;
+//      for (const auto& id : data_.old_edge_to_new_id_) {
+//        old_dist[id.first.first] = DINF;
+//        old_dist[id.first.second] = DINF;
+//      }
+//      for (const auto& otn : data_.old_edge_to_new_id_) {
+//        for (const auto n : otn.second) {
+//          if (new_dist.find(n) != new_dist.end()) {
+//            if (new_dist[n] < old_dist[otn.first.first]) {
+//              old_dist[otn.first.first] = new_dist[n];
+//            }
+//            if (new_dist[n] < old_dist[otn.first.second]) {
+//              old_dist[otn.first.second] = new_dist[n];
+//            }
+//          }
+//        }
+//      }
+
+//      std::map<int, double> old_dist;
+//      for (const auto& id : data_.old_id_to_new_id_) {
+//        old_dist[id.first] = DINF;
+//      }
+//      for (const auto& otn : data_.old_id_to_new_id_) {
+//        for (const auto n : otn.second) {
+//          if (new_dist.find(n) != new_dist.end()) {
+//            if (new_dist[n] < old_dist[otn.first]) {
+//              old_dist[otn.first] = new_dist[n];
+//            }
+//          }
+//        }
+//      }
 
       return old_dist;
     }

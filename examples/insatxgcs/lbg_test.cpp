@@ -52,11 +52,11 @@ int main() {
   std::vector<HPolyhedron> regions = utils::DeserializeRegions("/home/gaussian/cmu_ri_phd/phd_research/temp_INSATxGCS/INSATxGCS-Planner/src/data/maze.csv");
   auto edges_bw_regions = utils::DeserializeEdges("/home/gaussian/cmu_ri_phd/phd_research/temp_INSATxGCS/INSATxGCS-Planner/src/data/maze_edges.csv");
   std::string lbg_dir = "../examples/insatxgcs/resources/" + env_name + "/lbg/";
-  std::string lbg_file = lbg_dir + "maze2d_o2_c1_pw1_tw0_hmin0_hmax1_hdmin0_sm0";
+  std::string lbg_file = lbg_dir + "maze2d_o1_c0_pw1_tw0_hmin0_hmax1_hdmin0_sm0";
 
   int num_positions = 2;
-  int order = 2;
-  int continuity = 1;
+  int order = 1;
+  int continuity = 0;
   double h_min = 1e-3;
   double h_max = 1;
   double path_len_weight = 1;
@@ -78,7 +78,7 @@ int main() {
   auto graph = lbg.GetLBAdjacencyList();
   auto costs = lbg.GetLBAdjacencyCostList();
 
-  int gcs_start_id = 3;
+  int gcs_start_id = 0;
   auto start_state = regions[gcs_start_id].ChebyshevCenter();
   std::vector start(start_state.data(), start_state.data() + start_state.size());
 

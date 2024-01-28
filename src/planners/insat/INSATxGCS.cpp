@@ -162,22 +162,22 @@ namespace ps
 
       // Lower bound
       // Option 1
-//      StateVarsType state(1, adj.first);
-//      lb_cost_[adj.first] = unary_heuristic_generator_(state);
+      StateVarsType state(1, adj.first);
+      lb_cost_[adj.first] = unary_heuristic_generator_(state);
 
       // Option 2
-      auto pfg = paths_from_goal_[adj.first];
-      if (pfg.empty()) {
-        lb_cost_[adj.first] = 0;
-        continue;
-      }
-      pfg.pop_back();
-      if (pfg.empty()) {
-        lb_cost_[adj.first] = 0;
-        continue;
-      }
-      std::reverse(pfg.begin(), pfg.end());
-      lb_cost_[adj.first] = insat_actions_ptrs_[0]->lowerboundCost(pfg);
+//      auto pfg = paths_from_goal_[adj.first];
+//      if (pfg.empty()) {
+//        lb_cost_[adj.first] = 0;
+//        continue;
+//      }
+//      pfg.pop_back();
+//      if (pfg.empty()) {
+//        lb_cost_[adj.first] = 0;
+//        continue;
+//      }
+//      std::reverse(pfg.begin(), pfg.end());
+//      lb_cost_[adj.first] = insat_actions_ptrs_[0]->lowerboundCost(pfg);
 
       // Option 3
 //      lb_cost_[adj.first] = pfg.size();
