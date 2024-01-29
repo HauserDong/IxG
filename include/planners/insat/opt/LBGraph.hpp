@@ -45,6 +45,7 @@
 #include <utility>
 #include <boost/archive/text_iarchive.hpp>
 #include <boost/archive/text_oarchive.hpp>
+#include <stack>
 
 namespace ps {
 
@@ -541,36 +542,36 @@ namespace ps {
         }
       }
 
-      std::map<int, double> old_dist;
-      for (const auto& otn : data_.old_edge_to_new_id_) {
-        double d = DINF/2;
-        for (const auto n : otn.second) {
-          if (new_dist.find(n) != new_dist.end()) {
-            if (new_dist[n] < d) {
-              d = new_dist[n];
-            }
-          }
-        }
-        old_dist[otn.first.first] = d; /// @FIXME: Is this correct?
-      }
-
 //      std::map<int, double> old_dist;
-//      for (const auto& id : data_.old_edge_to_new_id_) {
-//        old_dist[id.first.first] = DINF;
-//        old_dist[id.first.second] = DINF;
-//      }
 //      for (const auto& otn : data_.old_edge_to_new_id_) {
+//        double d = DINF/2;
 //        for (const auto n : otn.second) {
 //          if (new_dist.find(n) != new_dist.end()) {
-//            if (new_dist[n] < old_dist[otn.first.first]) {
-//              old_dist[otn.first.first] = new_dist[n];
-//            }
-//            if (new_dist[n] < old_dist[otn.first.second]) {
-//              old_dist[otn.first.second] = new_dist[n];
+//            if (new_dist[n] < d) {
+//              d = new_dist[n];
 //            }
 //          }
 //        }
+//        old_dist[otn.first.first] = d; /// @FIXME: Is this correct?
 //      }
+
+      std::map<int, double> old_dist;
+      for (const auto& id : data_.old_edge_to_new_id_) {
+        old_dist[id.first.first] = DINF;
+        old_dist[id.first.second] = DINF;
+      }
+      for (const auto& otn : data_.old_edge_to_new_id_) {
+        for (const auto n : otn.second) {
+          if (new_dist.find(n) != new_dist.end()) {
+            if (new_dist[n] < old_dist[otn.first.first]) {
+              old_dist[otn.first.first] = new_dist[n];
+            }
+            if (new_dist[n] < old_dist[otn.first.second]) {
+              old_dist[otn.first.second] = new_dist[n];
+            }
+          }
+        }
+      }
 
 //      std::map<int, double> old_dist;
 //      for (const auto& id : data_.old_id_to_new_id_) {
@@ -587,6 +588,67 @@ namespace ps {
 //      }
 
       return old_dist;
+    }
+
+    int FindNumConnectedComponents() {
+      const auto& graph = data_.lbg_adj_list_;
+      std::unordered_set<int> visited;
+      int components = 0;
+
+      for (const auto& pair : graph) {
+        int node = pair.first;
+
+        if (visited.find(node) == visited.end()) {
+          // Start a new traversal from an unvisited node
+          components++;
+          std::stack<int> stack;
+          stack.push(node);
+
+          while (!stack.empty()) {
+            int current = stack.top();
+            stack.pop();
+
+            if (visited.find(current) == visited.end()) {
+              visited.insert(current);
+
+              // Add unvisited neighbors to the stack
+              for (int neighbor : graph.at(current)) {
+                if (visited.find(neighbor) == visited.end()) {
+                  stack.push(neighbor);
+                }
+              }
+            }
+          }
+        }
+      }
+
+      return components;
+    }
+
+
+    void DFSUtil(std::unordered_map<int, std::vector<int>>& graph, int vertex, std::vector<bool>& visited) {
+      visited[vertex] = true;
+      for (int neighbor : graph[vertex]) {
+        if (!visited[neighbor]) {
+          DFSUtil(graph, neighbor, visited);
+        }
+      }
+    }
+
+    int countConnectedComponents() {
+      auto& graph = data_.lbg_adj_list_;
+      int numComponents = 0;
+      int numVertices = graph.size();
+      std::vector<bool> visited(numVertices, false);
+
+      for (auto& vertex : graph) {
+        if (!visited[vertex.first]) {
+          DFSUtil(graph, vertex.first, visited);
+          numComponents++;
+        }
+      }
+
+      return numComponents;
     }
 
     LBGraph::Data data_;

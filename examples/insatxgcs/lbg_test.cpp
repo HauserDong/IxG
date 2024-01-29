@@ -84,18 +84,21 @@ int main() {
 
   LBGSearch search(lbg_file);
 
+  auto num_cc = search.countConnectedComponents();
+  std::cout << "Num CC in graph: " << num_cc << std::endl;
+
   auto start_time = std::chrono::high_resolution_clock::now();
   auto graph_dist = search.Dijkstra(start, gcs_start_id);
   auto end_time = std::chrono::high_resolution_clock::now();
 
   std::cout << "Dijkstra took " << std::chrono::duration_cast<std::chrono::nanoseconds>(end_time - start_time).count()/1e9 << "s" << std::endl;
 
-  for (auto d : graph_dist) {
-    if (d.second < 1e3) {
-      std::cout << d.first << "\t" << d.second << std::endl;
-    } else {
-      std::cout << d.first << "\t" << "> 1e3" << std::endl;
-    }
-  }
+//  for (auto d : graph_dist) {
+//    if (d.second < 1e3) {
+//      std::cout << d.first << " " << d.second << std::endl;
+//    } else {
+//      std::cout << d.first << " " << "> 1e3" << std::endl;
+//    }
+//  }
 
 }

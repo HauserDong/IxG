@@ -162,7 +162,7 @@ namespace ps
 
 
     if (traj.size() == 0) {
-      auto disc_traj = sampleTrajectory(traj.traj_, 1e-2);
+      auto disc_traj = sampleTrajectory(traj.traj_, 1e-1);
       return calculateCost(disc_traj)*path_length_weight_ +
              traj.traj_.end_time()*time_weight_;
     } else {
