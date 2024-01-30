@@ -342,9 +342,9 @@ namespace ps {
         lb_edge_to_costs_[nz_lb_edge] = cost;
         /// Save the new id with states
         auto p0 = soln.first.value(soln.first.start_time());
-        auto pF = soln.first.value(soln.first.start_time());
+        auto pF = soln.first.value(soln.first.end_time());
         std::vector<double> _p0(p0.data(), p0.data() + p0.size());
-        std::vector<double> _pF(p0.data(), p0.data() + p0.size());
+        std::vector<double> _pF(pF.data(), pF.data() + pF.size());
         data_.new_id_to_state_[in_id] = _p0;
         data_.new_id_to_state_[out_id] = _pF;
 
