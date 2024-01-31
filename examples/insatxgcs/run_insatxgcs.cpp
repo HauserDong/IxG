@@ -270,12 +270,15 @@ int main(int argc, char* argv[])
   string planner_name = argv[1];
 
 
-  std::vector<HPolyhedron> regions = utils::DeserializeRegions("../examples/insatxgcs/resources/maze2d/maze.csv");
-  auto edges_bw_regions = utils::DeserializeEdges("../examples/insatxgcs/resources/maze2d/maze_edges.csv");
+//  std::vector<HPolyhedron> regions = utils::DeserializeRegions("../examples/insatxgcs/resources/maze2d/maze.csv");
+//  auto edges_bw_regions = utils::DeserializeEdges("../examples/insatxgcs/resources/maze2d/maze_edges.csv");
+  std::vector<HPolyhedron> regions = utils::DeserializeRegions("../examples/insatxgcs/resources/bimanual/regions.csv");
+  auto edges_bw_regions = utils::DeserializeEdges("../examples/insatxgcs/resources/bimanual/edges.csv");
 //  std::vector<HPolyhedron> regions = utils::DeserializeRegions("../examples/insatxgcs/resources/3hc10dtp/regions.csv");
 //  auto edges_bw_regions = utils::DeserializeEdges("../examples/insatxgcs/resources/3hc10dtp/pruned_edges_8.csv");
 
-  int num_positions = 2;
+//  int num_positions = 2;
+  int num_positions = 12;
 //  int num_positions = 18;
   rm::dof = num_positions;
   int order = 1;
@@ -336,8 +339,10 @@ int main(int argc, char* argv[])
   std::vector<vector<double>> starts, goals;
   if (load_starts_goals_from_file)
   {
-    std::string starts_path = "../examples/insatxgcs/resources/maze2d/starts1.txt";
-    std::string goals_path = "../examples/insatxgcs/resources/maze2d/goals1.txt";
+//    std::string starts_path = "../examples/insatxgcs/resources/maze2d/starts1.txt";
+//    std::string goals_path = "../examples/insatxgcs/resources/maze2d/goals1.txt";
+    std::string starts_path = "../examples/insatxgcs/resources/bimanual/starts.txt";
+    std::string goals_path = "../examples/insatxgcs/resources/bimanual/goals.txt";
 //    std::string starts_path = "../examples/insatxgcs/resources/3hc10dtp/far_starts.txt";
 //    std::string goals_path = "../examples/insatxgcs/resources/3hc10dtp/far_goals.txt";
     loadStartsAndGoalsFromFile(starts, goals, starts_path, goals_path);
@@ -352,7 +357,8 @@ int main(int argc, char* argv[])
   vector<double> all_execution_time;
 
   /// save logs
-  std::string env_name = "maze2d";
+//  std::string env_name = "maze2d";
+  std::string env_name = "bimanual";
 //  std::string env_name = "3hc10dtp";
   MatDf start_log, goal_log, traj_log;
   std::string traj_path ="../logs/" + planner_name +"_" + env_name + "_traj.txt";
