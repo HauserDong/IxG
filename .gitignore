@@ -38,3 +38,5 @@ devel/
 logs/
 
 __pycache__/
+
+.vscode

@@ -36,6 +36,8 @@
 
 #include <iostream>
 
+using namespace std;
+
 namespace ps {
 
 // Given a list of matrices, return the matrices with every column where all

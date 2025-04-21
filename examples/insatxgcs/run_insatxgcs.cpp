@@ -247,15 +247,26 @@ MatDf sampleTrajectory(const drake::trajectories::CompositeTrajectory<double>& t
 
 int main(int argc, char* argv[])
 {
-  setenv("MOSEKLM_LICENSE_FILE", "/home/gaussian/Documents/softwares/mosektoolslinux64x86/mosek.lic", true);
   auto lic = drake::solvers::MosekSolver::AcquireLicense();
 
   int num_threads;
+  string env_name;
 
   if (!strcmp(argv[1], "insat") || !strcmp(argv[1], "insatxgcs") || !strcmp(argv[1], "wastar"))
   {
-    if (argc != 2) throw runtime_error("Format: run_robot_nav_2d insat");
+    if (argc != 3) throw runtime_error("Format: run_robot_nav_2d insat maze");
     num_threads = 1;
+
+    if (!strcmp(argv[2], "maze2d")){
+      env_name = "maze2d";
+    }else if(!strcmp(argv[2], "bimanual")){
+      env_name = "bimanual";
+    }else if(!strcmp(argv[2], "3hc10dtp")){
+      env_name = "3hc10dtp";
+    }else{
+      throw runtime_error("Test " + string(argv[2]) + " not identified");
+    }
+
   }
   else if (!strcmp(argv[1], "pinsat") || !strcmp(argv[1], "pixg") || !strcmp(argv[1], "rrt") || !strcmp(argv[1], "rrtconnect") || !strcmp(argv[1], "epase") || !strcmp(argv[1], "gepase"))
   {
@@ -268,18 +279,32 @@ int main(int argc, char* argv[])
   }
 
   string planner_name = argv[1];
+  int num_positions;
+  vector<HPolyhedron> regions;
+  std::shared_ptr<std::vector<std::pair<int,int>>> edges_bw_regions;
+
+  if(env_name == "maze2d"){
+    regions = utils::DeserializeRegions("../examples/insatxgcs/resources/maze2d/maze.csv");
+    edges_bw_regions = utils::DeserializeEdges("../examples/insatxgcs/resources/maze2d/maze_edges.csv");
+
+    num_positions = 2;
+
+  }else if(env_name == "bimanual"){
+    regions = utils::DeserializeRegions("../examples/insatxgcs/resources/bimanual/regions.csv");
+    edges_bw_regions = utils::DeserializeEdges("../examples/insatxgcs/resources/bimanual/edges.csv");
+
+    num_positions = 14;
 
 
-//  std::vector<HPolyhedron> regions = utils::DeserializeRegions("../examples/insatxgcs/resources/maze2d/maze.csv");
-//  auto edges_bw_regions = utils::DeserializeEdges("../examples/insatxgcs/resources/maze2d/maze_edges.csv");
-  std::vector<HPolyhedron> regions = utils::DeserializeRegions("../examples/insatxgcs/resources/bimanual/regions.csv");
-  auto edges_bw_regions = utils::DeserializeEdges("../examples/insatxgcs/resources/bimanual/edges.csv");
-//  std::vector<HPolyhedron> regions = utils::DeserializeRegions("../examples/insatxgcs/resources/3hc10dtp/regions.csv");
-//  auto edges_bw_regions = utils::DeserializeEdges("../examples/insatxgcs/resources/3hc10dtp/pruned_edges_8.csv");
+  }else if(env_name == "3hc10dtp"){
+    regions = utils::DeserializeRegions("../examples/insatxgcs/resources/3hc10dtp/regions.csv");
+    edges_bw_regions = utils::DeserializeEdges("../examples/insatxgcs/resources/3hc10dtp/pruned_edges_8.csv");
 
-//  int num_positions = 2;
-  int num_positions = 12;
-//  int num_positions = 18;
+    num_positions = 18;
+
+  }
+
+
   rm::dof = num_positions;
   int order = 1;
   int continuity = 1;
@@ -337,34 +362,41 @@ int main(int argc, char* argv[])
 
   // Generate random starts and goals
   std::vector<vector<double>> starts, goals;
+  string starts_path, goals_path;
   if (load_starts_goals_from_file)
   {
-//    std::string starts_path = "../examples/insatxgcs/resources/maze2d/starts1.txt";
-//    std::string goals_path = "../examples/insatxgcs/resources/maze2d/goals1.txt";
-    std::string starts_path = "../examples/insatxgcs/resources/bimanual/starts.txt";
-    std::string goals_path = "../examples/insatxgcs/resources/bimanual/goals.txt";
-//    std::string starts_path = "../examples/insatxgcs/resources/3hc10dtp/far_starts.txt";
-//    std::string goals_path = "../examples/insatxgcs/resources/3hc10dtp/far_goals.txt";
+    if(env_name == "maze2d"){
+
+      starts_path = "../examples/insatxgcs/resources/maze2d/starts1.txt";
+      goals_path = "../examples/insatxgcs/resources/maze2d/goals1.txt";
+ 
+    }else if(env_name == "bimanual"){
+      
+      starts_path = "../examples/insatxgcs/resources/bimanual/starts.txt";
+      goals_path = "../examples/insatxgcs/resources/bimanual/goals.txt";
+  
+    }else if(env_name == "3hc10dtp"){
+      starts_path = "../examples/insatxgcs/resources/3hc10dtp/far_starts.txt";
+      goals_path = "../examples/insatxgcs/resources/3hc10dtp/far_goals.txt";
+    }
+
     loadStartsAndGoalsFromFile(starts, goals, starts_path, goals_path);
   }
-
+  
   // Insat Params
   InsatParams insat_params(rm::dof, 2 * rm::dof, rm::dof);
-
+  
   vector<double> all_maps_time_vec, all_maps_cost_vec;
   vector<int> all_maps_num_edges_vec;
   unordered_map<string, vector<double>> all_action_eval_times;
   vector<double> all_execution_time;
 
   /// save logs
-//  std::string env_name = "maze2d";
-  std::string env_name = "bimanual";
-//  std::string env_name = "3hc10dtp";
   MatDf start_log, goal_log, traj_log;
   std::string traj_path ="../logs/" + planner_name +"_" + env_name + "_traj.txt";
-  std::string starts_path ="../logs/" + planner_name + "_" + env_name + "_starts.txt";
-  std::string goals_path ="../logs/" + planner_name +"_" + env_name + "_goals.txt";
-
+  starts_path ="../logs/" + planner_name + "_" + env_name + "_starts.txt";
+  goals_path ="../logs/" + planner_name +"_" + env_name + "_goals.txt";
+  
 //  auto opt = GCSOpt(regions, *edges_bw_regions,
 //                    order, h_min, h_max, path_len_weight, time_weight,
 //                    vel_lb, vel_ub, verbose);
@@ -387,20 +419,23 @@ int main(int argc, char* argv[])
 
   int num_success = 0;
   vector<vector<PlanElement>> plan_vec;
-
+  
   int run_offset = 0;
   num_runs = starts.size();
 //  num_runs = 13;
+
   for (int run = run_offset; run < run_offset+num_runs; ++run)
   {
     /// Set start and goal
     Eigen::VectorXd start_vec = Eigen::Map<Eigen::VectorXd, Eigen::Unaligned>(starts[run].data(), starts[run].size());
     Eigen::VectorXd goal_vec = Eigen::Map<Eigen::VectorXd, Eigen::Unaligned>(goals[run].data(), goals[run].size());
 
+
     /// Set up optimizer
     auto opt = GCSOpt(regions, *edges_bw_regions,
                       order, h_min, h_max, path_len_weight, time_weight,
                       vel_lb, vel_ub, verbose);
+
     // Add start and goals to optimizer
     VertexId start_vid = opt.AddStart(start_vec);
     VertexId goal_vid = opt.AddGoal(goal_vec);
