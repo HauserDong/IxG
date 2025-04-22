@@ -8,14 +8,25 @@ IxG is a GCS accelerator that proposes INSAT as a solver for planning on the gra
 
 # Get Started
 
-## Install Drake
+## Dependency
+### Install Drake
 First, install Drake through [APT](https://drake.mit.edu/apt.html). 
 
 > If you want to use it through Python, you can install it through [Pip](https://drake.mit.edu/pip.html). 
-
 > C++ API: https://drake.mit.edu/doxygen_cxx/index.html
-
 > Python APT: https://drake.mit.edu/pydrake/index.html
+
+### Install Opencv
+```
+sudo apt-get update
+sudo apt-get install libopencv-dev python3-opencv
+```
+
+### Install SBPL
+```
+sudo apt-get install ros-distro-sbpl
+```
+where `distro` is the name of your ROS distribution.
 
 ## Set your mosek license
 Get a [mosek](https://www.mosek.com/) license first.
@@ -47,3 +58,16 @@ In your `build` folder, run `run_insatxgcs` to test IxG algorithm.
 ```
 ./run_insatxgcs insatxgcs maze2d
 ```
+
+In your `build` folder, run `run_robot_nav_2d`.
+
+1. wastar planner:
+```
+./run_robot_nav_2d wastar
+```
+
+2. mplp planner **(still have bugs)**:
+```
+./run_robot_nav_2d mplp thread_num
+```
+where `thread_num` is the number of threads (no less than 4).

@@ -87,6 +87,12 @@ origin: https://github.com/scipy/scipy/blob/main/scipy/optimize/Zeros/brentq.c
   }
 
   std::vector<HPolyhedron> DeserializeRegions(const std::string& file_path) {
+    // Read the regions from a CSV file.
+    // The first line contains the number of regions.
+    // Then the row and col of A, the row of b = row of A.
+    // Then the entries of A and entries of b.
+    // Need to prepare the polyhedra A and b first.
+
     std::vector<HPolyhedron> regions;
 
     std::ifstream file(file_path);

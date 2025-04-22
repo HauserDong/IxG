@@ -7,7 +7,7 @@ using namespace std;
 using namespace ps;
 
 
-bool RobotNav2dAction::CheckPreconditions(const StateVarsType& state)
+bool RobotNav2dAction::CheckPreconditions(const StateVarsType& state, int thread_id)
 {
     return true;
 }

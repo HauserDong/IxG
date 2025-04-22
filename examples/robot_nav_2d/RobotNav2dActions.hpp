@@ -12,7 +12,7 @@ class RobotNav2dAction : public Action
 public:
     RobotNav2dAction(const std::string& type, ParamsType params, std::vector<std::vector<int>> map, bool is_expensive = true)
     : Action(type, params, is_expensive), map_(map) {};
-    bool CheckPreconditions(const StateVarsType& state); 
+    virtual bool CheckPreconditions(const StateVarsType& state, int thread_id=0); 
     ActionSuccessor GetSuccessor(const StateVarsType& state_vars, int thread_id); 
     ActionSuccessor GetSuccessorLazy(const StateVarsType& state_vars, int thread_id); 
     ActionSuccessor Evaluate(const StateVarsType& parent_state_vars, const StateVarsType& child_state_vars, int thread_id=0);
