@@ -81,6 +81,16 @@ target_link_libraries(run_insatxgcs
         ${drake_LIBRARIES}
         pthread)
 
+add_executable(run_insatxgcs_vis
+        examples/insatxgcs/run_insatxgcs_vis.cpp
+        examples/insatxgcs/INSATxGCSAction.cpp
+        ${INSATxGCS_SOURCES})
+
+target_link_libraries(run_insatxgcs_vis
+        ${drake_LIBRARIES}
+        ${OpenCV_LIBS}
+        pthread)
+
 
 add_executable(gcsopt_test
         examples/insatxgcs/gcsopt_test.cpp

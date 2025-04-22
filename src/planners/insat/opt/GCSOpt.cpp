@@ -303,8 +303,7 @@ std::pair<drake::trajectories::CompositeTrajectory<double>,
 }
 
 std::pair<drake::trajectories::CompositeTrajectory<double>,
-        drake::solvers::MathematicalProgramResult> ps::GCSOpt::Solve(std::vector<VertexId> &path_vids,
-                                                                     Eigen::VectorXd& initial_guess) {
+        drake::solvers::MathematicalProgramResult> ps::GCSOpt::Solve(std::vector<VertexId> &path_vids, Eigen::VectorXd& initial_guess) {
   std::vector<EdgeId> path_eids;
   for (int i=0; i<path_vids.size()-1; ++i) {
     int64_t uid = path_vids[i].get_value()-1;

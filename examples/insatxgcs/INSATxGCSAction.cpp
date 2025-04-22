@@ -60,13 +60,14 @@ namespace ps
   ActionSuccessor INSATxGCSAction::GetSuccessor(const StateVarsType& state_vars, int thread_id)
   {
     if (adjacency_list_.find(static_cast<int>(state_vars[0])) == adjacency_list_.end()) {
+      // Check whether the start vertex in adjacency list
       throw std::runtime_error("State " + std::to_string(static_cast<int>(state_vars[0])) + " not found in successor map!!");
     }
 
-    int idx = std::stoi(type_);
+    int idx = std::stoi(type_); // an integer indicating the index of the action
     if (adjacency_list_[static_cast<int>(state_vars[0])].size() > idx) {
       StateVarsType succ;
-      succ.push_back(adjacency_list_[static_cast<int>(state_vars[0])][idx]);
+      succ.push_back(adjacency_list_[static_cast<int>(state_vars[0])][idx]);  // add the vertex index of the neighbor set
       return ActionSuccessor(true, {std::make_pair(succ, 1.0)});
     }
     return ActionSuccessor(false, {make_pair(StateVarsType(), -DINF)});

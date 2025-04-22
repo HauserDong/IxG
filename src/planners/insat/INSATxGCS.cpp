@@ -197,7 +197,7 @@ namespace ps
 
   std::vector<InsatStatePtrType>
   INSATxGCS::getStateAncestors(const InsatStatePtrType state_ptr, bool reverse) const {
-    // Get ancestors
+    // Get ancestors (including the current one)
     std::vector<InsatStatePtrType> ancestors;
     ancestors.push_back(state_ptr);
     auto bp = state_ptr->GetIncomingInsatEdgePtr();
@@ -220,7 +220,7 @@ namespace ps
 
     state_ptr->SetVisited();
 
-    auto ancestors = getStateAncestors(state_ptr, true);
+    auto ancestors = getStateAncestors(state_ptr, true);  // get ancestors
 
     for (auto& action_ptr: insat_actions_ptrs_)
     {
@@ -246,13 +246,14 @@ namespace ps
 
   void INSATxGCS::updateState(InsatStatePtrType &state_ptr, std::vector<InsatStatePtrType> &ancestors,
                                  InsatActionPtrType &action_ptr, ActionSuccessor &action_successor) {
+    // using current state, its ancestors, and action to update the state
 
     if (action_successor.success_)
     {
 #if OPTIMAL
       auto successor_state_ptr = constructInsatPath(ancestors, action_successor.successor_state_vars_costs_.back().first);
 #else
-      auto successor_state_ptr = constructInsatState(action_successor.successor_state_vars_costs_.back().first);
+      auto successor_state_ptr = constructInsatState(action_successor.successor_state_vars_costs_.back().first);  // get the successor vertex index
 #endif
 
       if (!successor_state_ptr->IsVisited())
@@ -286,7 +287,7 @@ namespace ps
         {
           anc_states.emplace_back(anc->GetStateVars());
         }
-        traj = action_ptr->optimize(anc_states, successor_state_ptr->GetStateVars());
+        traj = action_ptr->optimize(anc_states, successor_state_ptr->GetStateVars()); // optimize in the historical set and the upcoming one
 
         if (!traj.isValid())
         {
@@ -373,7 +374,7 @@ namespace ps
   }
 
   InsatStatePtrType INSATxGCS::constructInsatState(const StateVarsType &state) {
-    size_t key = state_key_generator_(state);
+    size_t key = state_key_generator_(state); // according to state[0], generate a hash number. same state[0] will have same hash number
     auto it = insat_state_map_.find(key);
     InsatStatePtrType insat_state_ptr;
 
@@ -381,7 +382,7 @@ namespace ps
     if (it == insat_state_map_.end())
     {
       insat_state_ptr = new InsatState(state);
-      insat_state_map_.insert(std::pair<size_t, InsatStatePtrType>(key, insat_state_ptr));
+      insat_state_map_.insert(std::pair<size_t, InsatStatePtrType>(key, insat_state_ptr));  // keep the hash number and the state in the map
     }
     else
     {

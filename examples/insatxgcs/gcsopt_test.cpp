@@ -102,9 +102,8 @@ std::vector<EdgeId > pathToEdgeId(std::vector<int64_t>& path, const std::vector<
 }
 
 int main() {
-  setenv("MOSEKLM_LICENSE_FILE", "/home/gaussian/Documents/softwares/mosektoolslinux64x86/mosek.lic", true);
-  auto lic = drake::solvers::MosekSolver::AcquireLicense();
 
+  auto lic = drake::solvers::MosekSolver::AcquireLicense();
 
   std::vector<HPolyhedron> regions = utils::DeserializeRegions("/home/gaussian/cmu_ri_phd/phd_research/temp_INSATxGCS/INSATxGCS-Planner/src/data/maze.csv");
   auto edges_bw_regions = utils::DeserializeEdges("/home/gaussian/cmu_ri_phd/phd_research/temp_INSATxGCS/INSATxGCS-Planner/src/data/maze_edges.csv");
